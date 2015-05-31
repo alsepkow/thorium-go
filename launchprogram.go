@@ -28,13 +28,19 @@ func Execute(prog string) *exec.Cmd {
 }
 
 func main() {
-	//processL := [100]*exec.Cmd
+	processL := make([]*exec.Cmd, 100)
 	m := martini.Classic()
 	m.Get("/launch/:name",  func(params martini.Params) string {
 		e := Check(params["name"])
 		if e==1 {
 			cmdInfo := Execute(params["name"])
-			//processList[0]=cmdInfo
+			for i:=0; i<len(processL); i++ {
+				if processL[i]==nil {
+					processL[i]=cmdInfo
+					break
+				}
+			}
+			fmt.Println(processL)
 			return "launching " + params["name"] + "with pid " + strconv.Itoa(cmdInfo.Process.Pid) 	
 		} else {
 			return "not accepted"
