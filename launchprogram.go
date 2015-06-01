@@ -9,6 +9,7 @@ import "bytes"
 import "flag"
 import "math/rand"
 import "time"
+//import "net/http"
 
 
 func Check(prog string) int {
@@ -60,7 +61,7 @@ func main() {
 	fmt.Println(*mapArg)
 	processL := make([]*exec.Cmd, 100)
 	m := martini.Classic()
-	m.Get("/launch/:name",  func(params martini.Params) string {
+	m.Post("/launch/:name",  func(params martini.Params) string {
 		e := Check(params["name"])
 		if e==1 {
 			cmdInfo := Execute(params["name"])
