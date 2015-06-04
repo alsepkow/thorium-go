@@ -9,7 +9,9 @@ import "bytes"
 import "flag"
 import "math/rand"
 import "time"
-//import "net/http"
+import "database/sql"
+import _ "github.com/lib/pq"
+
 
 
 func Check(prog string) int {
@@ -36,7 +38,7 @@ func Execute(prog string) *exec.Cmd {
 
 func RedisPush(cmdI *exec.Cmd) int {
 	spec := redis.DefaultSpec().Password("go-redis")
-	client, e := redis.NewAsynchClientWithSpec(spec)
+	client, e := redis.NewSynchClientWithSpec(spec)
 	if e!= nil {
 		fmt.Println("error creating client for: ", e)
 	}
@@ -44,12 +46,39 @@ func RedisPush(cmdI *exec.Cmd) int {
 	pidString := strconv.Itoa(cmdI.Process.Pid)
 	var buf bytes.Buffer
 	buf.Write([]byte(pidString))
-	_,e = client.Rpush("server:pids", buf.Bytes())
+	e = client.Hset("server:pids", "pid", buf.Bytes())
 	if e != nil {
 		fmt.Println("error writing to list")
 		return 0
 	}
 	return 1
+}
+
+func PostGresQueryIDS() []int {
+	db, err := sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
+	if err != nil {
+		fmt.Println("err: ", err)
+	}
+	var game_id int
+	game_ids := make([]int, 100)
+	rows, err := db.Query("SELECT * FROM games;")
+	if err != nil {
+		fmt.Println("err2: ", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&game_id)
+		if err != nil {
+			fmt.Println("err3: ", err)
+		}
+		for index,_ := range game_ids {
+			if game_ids[index]==0 {
+				game_ids[index]=game_id;
+				break
+			}
+		}
+	}
+	return game_ids
 }
 
 func main() {
@@ -60,6 +89,12 @@ func main() {
 	fmt.Println(strconv.Itoa(*portArg))
 	fmt.Println(*mapArg)
 	processL := make([]*exec.Cmd, 100)
+	currentGames := PostGresQueryIDS()
+	for _,value := range currentGames {
+		if value != 0 {
+			fmt.Println(value)
+		}
+	}
 	m := martini.Classic()
 	m.Post("/launch/:name",  func(params martini.Params) string {
 		e := Check(params["name"])
