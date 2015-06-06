@@ -24,8 +24,10 @@ func handleGameRequest() (int, string) {
 
 	db, err := connectToDB()
 	if err != nil {
-		return 500, "Internal Server Error"
 		fmt.Println("[ThoriumNET] unable to connect to DB")
+		fmt.Println(err)
+		return 500, "Internal Server Error"
+
 	}
 
 	// create a new game
@@ -45,6 +47,8 @@ func handleRegisterServer(params martini.Params) (int, string) {
 
 	db, err := connectToDB()
 	if err != nil {
+		fmt.Println("[ThoriumNET] unable to connect to DB")
+		fmt.Println(err)
 		return 500, "Internal Server Error"
 	}
 
@@ -52,14 +56,36 @@ func handleRegisterServer(params martini.Params) (int, string) {
 
 	fmt.Println("[ThoriumNET] master-server.handleRegisterServer ID=", gameId)
 
-	var pgId int
-	var pgEndpoint string
-
-	err = db.QueryRow("SELECT * FROM public.games WHERE game_id = $1").Scan(&pgId, &pgEndpoint)
+	// query to find out if the game id is validi
+	var tx *sql.Tx
+	tx, err = db.Begin()
 	if err != nil {
 		return 500, "Internal Server Error"
+	}
+
+	// if game exists, update ip with remote ip
+	var res sql.Result
+	res, err = tx.Exec("SELECT * FROM public.games WHERE game_id = $1", gameId)
+	rows, err2 := res.RowsAffected()
+	if err != nil || err2 != nil || rows == 0 {
+		tx.Rollback()
+		fmt.Println("[ThoriumNET] game not found, ID=", gameId)
+		fmt.Println(err)
+		return 500, "Internal Server Error"
 	} else {
-		fmt.Println("Found game ", pgId)
+		var res sql.Result
+		res, err = tx.Exec("UPDATE games SET ip_endpoint = '127.0.1.7:39182' WHERE game_id = $1", gameId)
+		rowsAffected, err2 := res.RowsAffected()
+		if err != nil || err2 != nil || rowsAffected == 0 {
+			tx.Rollback()
+			fmt.Println("[ThoriumNET] failed to update game ip endpoint, ID=", gameId)
+			fmt.Println(err)
+			return 500, "Internal Server Error"
+
+		}
+
+		tx.Commit()
+		fmt.Println("Found game ", gameId)
 		return 200, "OK"
 	}
 }
