@@ -1,13 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 )
 
 import "database/sql"
 import _ "github.com/lib/pq"
 import "github.com/go-martini/martini"
+
+type NewGameRequest struct {
+	Map        string
+	MaxPlayers int
+}
 
 func main() {
 	fmt.Println("hello world")
@@ -19,8 +26,21 @@ func main() {
 	m.Run()
 }
 
-func handleGameRequest() (int, string) {
+func handleGameRequest(req *http.Request) (int, string) {
 	fmt.Println("[ThoriumNET] master-server.handleGameRequest")
+
+	decoder := json.NewDecoder(req.Body)
+	var request NewGameRequest
+	err := decoder.Decode(&request)
+	if err != nil {
+		fmt.Println(err)
+		return 500, "Internal Server Error"
+	}
+
+	if request.Map == "" {
+		fmt.Println("No Map Name Given")
+		return 500, "No Map Name Given"
+	}
 
 	db, err := connectToDB()
 	if err != nil {
@@ -30,9 +50,9 @@ func handleGameRequest() (int, string) {
 
 	}
 
-	// create a new game
+	// create a new game with max players = 12 as default
 	var gameId int
-	err = db.QueryRow("INSERT INTO games (ip_endpoint) VALUES (NULL) RETURNING game_id").Scan(&gameId)
+	err = db.QueryRow("INSERT INTO games (ip_endpoint, map_name, max_players) VALUES ( NULL, $1, $2 ) RETURNING game_id", request.Map, request.MaxPlayers).Scan(&gameId)
 	if err != nil {
 		fmt.Println("[ThoriumNET] unable to insert new game record")
 		fmt.Println(err)
