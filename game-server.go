@@ -19,8 +19,8 @@ func main() {
 	fmt.Println("hello world")
 
 	time := time.Now()
-
-	port := rand.Intn(time.Second())
+	rand.Seed(int64(time.Second()))
+	port := rand.Intn(50000)
 	port = port + 10000
 
 	fmt.Println(strconv.Itoa(port), "\n")
