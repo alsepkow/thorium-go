@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -25,16 +26,19 @@ func main() {
 
 	fmt.Println(strconv.Itoa(port), "\n")
 
-	response, err := http.PostForm("http://localhost:3000/machines/register_new", url.Values{"port": {strconv.Itoa(port)}})
+	var jsonStr = fmt.Sprint(`{"Port":"`, port, `"}`)
+	request, err := http.NewRequest("POST", "http://localhost:3000/machines/register_new", bytes.NewBuffer([]byte(jsonStr)))
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	response, err := client.Do(request)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
 	defer response.Body.Close()
-
 	body, err := ioutil.ReadAll(response.Body)
-
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
