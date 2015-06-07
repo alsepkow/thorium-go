@@ -22,8 +22,56 @@ func main() {
 	m := martini.Classic()
 	m.Post("/games/new_request", handleGameRequest)
 	m.Post("/games/:id/register_server", handleRegisterServer)
-	m.Post("/games/:id/heartbeat_server")
+	//m.Get("/games/:id", handleGetGameInfo)
+	//m.Post("/games/:id/heartbeat_server")
+	m.Post("/machines/register_new", handleRegisterMachine)
+	m.Post("/machines/:id/unregister", handleUnregisterMachine)
 	m.Run()
+}
+
+func handleRegisterMachine(req *http.Request) (int, string) {
+
+	db, err := connectToDB()
+	if err != nil {
+		fmt.Println("[ThoriumNET] unable to connect to DB")
+		fmt.Println(err)
+		return 500, "Internal Server Error"
+
+	}
+
+	machineIp := req.RemoteAddr
+
+	var machineId string
+	err = db.QueryRow("INSERT INTO game_machines (ip_endpoint) VALUES ($1) RETURNING machine_id", machineIp).Scan(&machineId)
+	if err != nil {
+		fmt.Println(err)
+		return 500, "Internal Server Error"
+	}
+
+	fmt.Println("machine registered, ip=", machineIp)
+	return 200, machineId
+}
+
+func handleUnregisterMachine(params martini.Params) (int, string) {
+
+	machineId := params["id"]
+
+	db, err := connectToDB()
+	if err != nil {
+		fmt.Println("[ThoriumNET] unable to connect to DB")
+		fmt.Println(err)
+		return 500, "Internal Server Error"
+
+	}
+
+	_, err = db.Exec("DELETE FROM game_machines WHERE machine_id = $1", machineId)
+	if err != nil {
+		fmt.Println(err)
+		return 500, "Internal Server Error"
+	}
+
+	fmt.Println("machine unregistered, id=", machineId)
+	return 200, "OK"
 }
 
 func handleGameRequest(req *http.Request) (int, string) {
