@@ -26,7 +26,7 @@ func main() {
 
 	fmt.Println(strconv.Itoa(port), "\n")
 
-	var jsonStr = fmt.Sprint(`{"Port":"`, port, `"}`)
+	var jsonStr = fmt.Sprint(`{"Port":`, port, `}`)
 	request, err := http.NewRequest("POST", "http://localhost:3000/machines/register_new", bytes.NewBuffer([]byte(jsonStr)))
 	request.Header.Set("Content-Type", "application/json")
 
@@ -44,6 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 	machineId := string(body)
+	fmt.Println("Registered As Machine#", machineId)
 
 	m := martini.Classic()
 	//m.Post("/games/new_request", handleGameRequest)

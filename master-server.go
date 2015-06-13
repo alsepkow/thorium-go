@@ -6,127 +6,96 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"thorium-go/database"
 )
-
-import "database/sql"
-import _ "github.com/lib/pq"
 import "github.com/go-martini/martini"
-
-type NewGameRequest struct {
-	Map        string
-	MaxPlayers int
-}
-
-type RegisterGameRequest struct {
-	MachineId int
-	Port      string
-}
-
-type RegisterMachineRequest struct {
-	Port string
-}
+import "thorium-go/requests"
 
 func main() {
 	fmt.Println("hello world")
 
 	m := martini.Classic()
 	m.Post("/games/new_request", handleGameRequest)
+	m.Post("/games", handleGameRequest)
+
 	m.Post("/games/:id/register_server", handleRegisterServer)
-	//m.Get("/games/:id", handleGetGameInfo)
-	//m.Post("/games/:id/heartbeat_server")
+
+	//m.Get("/games/:id", handleGetGameInfo
+	m.Post("/games/:id/heartbeat_server")
+
 	m.Post("/machines/register_new", handleRegisterMachine)
+	m.Post("/machines/", handleRegisterMachine)
+
 	m.Post("/machines/:id/unregister", handleUnregisterMachine)
+	m.Delete("/machines/:id", handleUnregisterMachine)
+
 	m.Run()
 }
 
-func handleRegisterMachine(req *http.Request) (int, string) {
+func handleRegisterMachine(httpReq *http.Request) (int, string) {
 
-	decoder := json.NewDecoder(req.Body)
-	var request RegisterMachineRequest
-	err := decoder.Decode(&request)
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.RegisterMachine
+	err := decoder.Decode(&req)
 	if err != nil {
-		fmt.Println("Error decoding machine register request")
-		fmt.Println(err)
+		logerr("Error decoding machine register request", err)
 		return 500, "Internal Server Error"
 	}
 
-	if request.Port == "" {
+	if req.Port == 0 {
 		fmt.Println("No Port Given")
 		return 500, "No Port Given"
 	} else {
-		fmt.Println("register port = ", request.Port)
+		fmt.Println("register port = ", req.Port)
 	}
 
-	db, err := connectToDB()
+	machineIp := strings.Split(httpReq.RemoteAddr, ":")[0]
+
+	var machineId int
+	machineId, err = thordb.RegisterMachine(machineIp, req.Port)
 	if err != nil {
-		fmt.Println("[ThoriumNET] unable to connect to DB")
-		fmt.Println(err)
-		return 500, "Internal Server Error"
-
-	}
-
-	machineIp := strings.Split(req.RemoteAddr, ":")[0]
-
-	var machineId string
-	err = db.QueryRow("INSERT INTO game_machines (ip_address, port) VALUES ($1, $2) RETURNING machine_id", machineIp, request.Port).Scan(&machineId)
-	if err != nil {
-		fmt.Println(err)
+		logerr("error registering machine", err)
 		return 500, "Internal Server Error"
 	}
-
 	fmt.Println("machine registered, ip=", machineIp)
-	return 200, machineId
+	return 200, strconv.Itoa(machineId)
 }
 
 func handleUnregisterMachine(params martini.Params) (int, string) {
 
-	machineId := params["id"]
-
-	db, err := connectToDB()
+	machineId, err := strconv.Atoi(params["id"])
 	if err != nil {
-		fmt.Println("[ThoriumNET] unable to connect to DB")
-		fmt.Println(err)
-		return 500, "Internal Server Error"
-
+		logerr(fmt.Sprint("unable to convert request parameter, id=", params["id"]), err)
+		return 400, "Bad Request"
 	}
 
-	_, err = db.Exec("DELETE FROM game_machines WHERE machine_id = $1", machineId)
-	if err != nil {
-		fmt.Println(err)
-		return 500, "Internal Server Error"
+	success, err := thordb.UnregisterMachine(machineId)
+	if err != nil || success {
+		logerr("unable to remove machine registry", err)
 	}
 
 	fmt.Println("machine unregistered, id=", machineId)
 	return 200, "OK"
 }
 
-func handleGameRequest(req *http.Request) (int, string) {
+func handleGameRequest(httpReq *http.Request) (int, string) {
 	fmt.Println("[ThoriumNET] master-server.handleGameRequest")
 
-	decoder := json.NewDecoder(req.Body)
-	var request NewGameRequest
-	err := decoder.Decode(&request)
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.NewGame
+	err := decoder.Decode(&req)
 	if err != nil {
-		fmt.Println(err)
+		logerr("unable to decode body data", err)
 		return 500, "Internal Server Error"
 	}
 
-	if request.Map == "" {
+	if req.Map == "" {
 		fmt.Println("No Map Name Given")
-		return 500, "No Map Name Given"
+		return 400, "Missing Parameters"
 	}
 
-	db, err := connectToDB()
-	if err != nil {
-		fmt.Println("[ThoriumNET] unable to connect to DB")
-		fmt.Println(err)
-		return 500, "Internal Server Error"
-
-	}
-
-	// create a new game with max players = 12 as default
 	var gameId int
-	err = db.QueryRow("INSERT INTO games (map_name, max_players) VALUES ( $1, $2 ) RETURNING game_id", request.Map, request.MaxPlayers).Scan(&gameId)
+	gameId, err = thordb.RegisterNewGame(req.Map, req.MaxPlayers)
 	if err != nil {
 		fmt.Println("[ThoriumNET] unable to insert new game record")
 		fmt.Println(err)
@@ -137,69 +106,53 @@ func handleGameRequest(req *http.Request) (int, string) {
 	return 200, "OK"
 }
 
-func handleRegisterServer(req *http.Request, params martini.Params) (int, string) {
-	decoder := json.NewDecoder(req.Body)
-	var request RegisterGameRequest
-	err := decoder.Decode(&request)
+func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, string) {
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.RegisterGame
+	err := decoder.Decode(&req)
 	if err != nil {
-		fmt.Println("Error decoding machine register request")
-		fmt.Println(err)
+		logerr("Error decoding machine register request", err)
 		return 500, "Internal Server Error"
 	}
 
-	if request.Port == "" {
+	if req.Port == 0 {
 		fmt.Println("No Port Given")
-		return 500, "No Port Given"
+		return 400, "Missing Parameters"
 	}
 
-	db, err := connectToDB()
+	var gameId int
+	gameId, err = strconv.Atoi(params["id"])
 	if err != nil {
-		fmt.Println("[ThoriumNET] unable to connect to DB")
-		fmt.Println(err)
-		return 500, "Internal Server Error"
+		logerr(fmt.Sprintf("unable to convert parameter id=%s to integer", params["id"]), err)
+		return 400, "Bad Request"
 	}
-
-	gameId := params["id"]
 
 	fmt.Println("[ThoriumNET] master-server.handleRegisterServer ID=", gameId)
 
-	// query to find out if the game id is validi
-	var tx *sql.Tx
-	tx, err = db.Begin()
+	exists, err := thordb.CheckExists(gameId)
 	if err != nil {
+		logerr("unable to connect to DB", err)
 		return 500, "Internal Server Error"
 	}
 
-	// if game exists, update ip with remote ip
-	var res sql.Result
-	res, err = tx.Exec("SELECT * FROM public.games WHERE game_id = $1", gameId)
-	rows, err2 := res.RowsAffected()
-	if err != nil || err2 != nil || rows == 0 {
-		tx.Rollback()
-		fmt.Println("[ThoriumNET] game not found, ID=", gameId)
-		fmt.Println(err)
+	if !exists {
+		fmt.Println("game id ", strconv.Itoa(gameId), " does not exist")
+		return 400, "Bad Request"
+	}
+
+	registered, err := thordb.RegisterActiveGame(gameId, req.MachineId, req.Port)
+	if err != nil || !registered {
+		logerr("unable to register game", err)
 		return 500, "Internal Server Error"
 	}
 
-	res, err = tx.Exec("INSERT INTO active_games (game_id, machine_id, port) VALUES ( $1, $2, $3 )", gameId, request.MachineId, request.Port)
-	if err != nil {
-		fmt.Println(err)
-		tx.Rollback()
-		return 500, "Internal Server Error"
-	}
-
-	tx.Commit()
 	fmt.Println("Found game ", gameId)
 	return 200, "OK"
 
 }
 
-func connectToDB() (*sql.DB, error) {
-	db, err := sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
-	if err != nil {
-		fmt.Println("database conn err: ", err)
-		return nil, err
-	}
-
-	return db, nil
+// TODO: Refactor into logging package
+func logerr(msg string, err error) {
+	fmt.Println("[ThoriumNET] ", msg)
+	fmt.Println(err)
 }
