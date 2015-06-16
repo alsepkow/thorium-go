@@ -1,14 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/go-martini/martini"
 )
-import "fmt"
-import "path/filepath"
-import "net/http"
 
 func main() {
 	m := martini.Classic()
