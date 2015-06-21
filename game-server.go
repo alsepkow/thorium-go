@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -47,21 +48,26 @@ func main() {
 	fmt.Println("Registered As Machine#", machineId)
 
 	m := martini.Classic()
+
+	m.Get("/ping", handlePingRequest)
 	//m.Post("/games/new_request", handleGameRequest)
 	//m.Post("/games/:id/register_server", handleRegisterServer)
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGKILL, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		<-c
+		fmt.Println(<-c)
 		shutdown(machineId)
 		os.Exit(1)
 	}()
-	//defer shutdown(machineId)
+	defer shutdown(machineId)
 
 	thisIp := fmt.Sprint("localhost:", strconv.Itoa(port))
 	m.RunOnAddr(thisIp)
+}
 
+func handlePingRequest() (int, string) {
+	return 200, "OK"
 }
 
 func shutdown(machineId string) {

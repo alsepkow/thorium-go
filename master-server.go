@@ -15,21 +15,88 @@ func main() {
 	fmt.Println("hello world")
 
 	m := martini.Classic()
-	m.Post("/games/new_request", handleGameRequest)
-	m.Post("/games", handleGameRequest)
 
+	// status
+	m.Get("/status", handleGetStatusRequest)
+
+	// client
+	m.Post("/clients/login", handleClientLogin)
+	m.Post("/clients/register", handleClientRegister)
+	m.Post("/clients/disconnect", handleClientDisconnect)
+
+	// characters
+	m.Post("/new", handleCreateCharacter)
+	m.Get("/:id", handleGetCharacter)
+	m.Get("/:id/simple", handleGetCharSimple)
+
+	// games
 	m.Post("/games/:id/register_server", handleRegisterServer)
+	m.Post("/games/:id/server_status", handleGameServerStatus)
 
-	//m.Get("/games/:id", handleGetGameInfo
-	m.Post("/games/:id/heartbeat_server")
+	m.Post("/games/new_request", handleGameRequest) // deprecate
+	m.Post("/games/new", handleGameRequest)
 
-	m.Post("/machines/register_new", handleRegisterMachine)
-	m.Post("/machines/", handleRegisterMachine)
+	m.Get("/games", handleGetServerList)
+	m.Get("/games/:id", handleGetGameInfo)
+	m.Post("/games/join", handleClientJoinGame)
+	m.Post("/games/join_queue", handleClientJoinQueue)
+
+	// machines
+	m.Post("/machines/register", handleRegisterMachine)
+	m.Post("/machines/register_new", handleRegisterMachine) // deprecate
 
 	m.Post("/machines/:id/unregister", handleUnregisterMachine)
 	m.Delete("/machines/:id", handleUnregisterMachine)
 
 	m.Run()
+}
+
+func handleGetStatusRequest(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleClientLogin(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleClientRegister(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleClientDisconnect(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleCreateCharacter(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleGetCharacter(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleGetCharSimple(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleClientJoinGame(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleClientJoinQueue(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleGameServerStatus(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleGetServerList(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
+}
+
+func handleGetGameInfo(httpReq *http.Request) (int, string) {
+	return 500, "Not Implemented"
 }
 
 func handleRegisterMachine(httpReq *http.Request) (int, string) {
