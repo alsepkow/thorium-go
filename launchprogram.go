@@ -1,22 +1,46 @@
 package main
 
-import "github.com/go-martini/martini"
+import (
+	"crypto/md5"
+	"crypto/rsa"
+	"encoding/json"
+	"hussain/thorium-go/requests"
+	"net/http"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/go-martini/martini"
+)
 import "os/exec"
 import "fmt"
 import "strconv"
 import "redis"
 import "bytes"
-import "flag"
-import "math/rand"
-import "time"
+
+import "crypto/rand"
+
 import "database/sql"
 import _ "github.com/lib/pq"
 
-
+//For now these field are from the sql table of games,
+//proper struct should be
+/*
+type ContractInformation struct {
+	OfferedBy string
+	TimeRemaining int
+	Bid int
+	Ask int
+}
+*/
+type ContractInformation struct {
+	game_id     int
+	map_name    string
+	max_players int
+	is_verified bool
+}
 
 func Check(prog string) int {
-	acceptedList := []string {"boltactiongame", "test"}
-	for i:=0; i<len(acceptedList); i++ {
+	acceptedList := []string{"boltactiongame", "test"}
+	for i := 0; i < len(acceptedList); i++ {
 		if acceptedList[i] == prog {
 			return 1
 		}
@@ -27,9 +51,9 @@ func Check(prog string) int {
 
 //returns cmd struct of program
 func Execute(prog string) *exec.Cmd {
-	cmd := exec.Command("./"+prog)
+	cmd := exec.Command("./" + prog)
 	e := cmd.Start()
-	if e!=nil {
+	if e != nil {
 		fmt.Println("Error runninng program ", e)
 	}
 	return cmd
@@ -39,7 +63,7 @@ func Execute(prog string) *exec.Cmd {
 func RedisPush(cmdI *exec.Cmd) int {
 	spec := redis.DefaultSpec().Password("go-redis")
 	client, e := redis.NewSynchClientWithSpec(spec)
-	if e!= nil {
+	if e != nil {
 		fmt.Println("error creating client for: ", e)
 	}
 	defer client.Quit()
@@ -71,9 +95,9 @@ func PostGresQueryIDS() []int {
 		if err != nil {
 			fmt.Println("err3: ", err)
 		}
-		for index,_ := range game_ids {
-			if game_ids[index]==0 {
-				game_ids[index]=game_id;
+		for index, _ := range game_ids {
+			if game_ids[index] == 0 {
+				game_ids[index] = game_id
 				break
 			}
 		}
@@ -82,21 +106,22 @@ func PostGresQueryIDS() []int {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-	var portArg = flag.Int("p",rand.Intn(65000-10000)+10000, "specifies port, default is random int between 10000-65000")
-	var mapArg = flag.String("m", "default map  value", "description of map")
-	flag.Parse()
-	fmt.Println(strconv.Itoa(*portArg))
-	fmt.Println(*mapArg)
-	processL := make([]*exec.Cmd, 100)
-	currentGames := PostGresQueryIDS()
-	for _,value := range currentGames {
-		if value != 0 {
-			fmt.Println(value)
-		}
-	}
+	//rand.Seed(time.Now().UnixNano())
+	//var portArg = flag.Int("p", rand.Intn(65000-10000)+10000, "specifies port, default is random int between 10000-65000")
+	//var mapArg = flag.String("m", "default map  value", "description of map")
+	//flag.Parse()
+	//fmt.Println(strconv.Itoa(*portArg))
+	//fmt.Println(*mapArg)
+	//rand.Seed = 1
+	//processL := make([]*exec.Cmd, 100)
+	//currentGames := PostGresQueryIDS()
+	//for _, value := range currentGames {
+	//if value != 0 {
+	//fmt.Println(value)
+	//}
+	//}
 	m := martini.Classic()
-	m.Post("/launch/:name",  func(params martini.Params) string {
+	/*m.Post("/launch/:name",  func(params martini.Params) string {
 		e := Check(params["name"])
 		if e==1 {
 			cmdInfo := Execute(params["name"])
@@ -109,15 +134,147 @@ func main() {
 				}
 			}
 			//fmt.Println(processL)
-			return "launching " + params["name"] + "with pid " + strconv.Itoa(cmdInfo.Process.Pid) 	
+			return "launching " + params["name"] + "with pid " + strconv.Itoa(cmdInfo.Process.Pid)
 		} else {
 			return "not accepted"
-		}	
+		}
 	})
-	
+	*/
+	//m.Get("/games", gameServerInfo)
+	m.Post("/client/login", handleClientLogin)
 	m.Run()
-//	err := cmd.Wait()
-//	fmt.Println(err)
-//	fmt.Println(cmd.Path)
-//	fmt.Println(cmd.Process.Pid)
+	//	err := cmd.Wait()
+	//	fmt.Println(err)
+	//	fmt.Println(cmd.Path)
+	//	fmt.Println(cmd.Process.Pid)
 }
+
+func handleClientLogin(httpReq *http.Request) (int, string) {
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.Authentication
+	err := decoder.Decode(&req)
+	if err != nil {
+		//logerr("Error decoding authentication request")
+		fmt.Println("error with json: ", err)
+		return 500, "Internal Server Error"
+	}
+	//need to check if username && password are correct.
+
+	/*
+		if req.Username == database username && req.Password == database password
+		then we can start to generate the token
+	*/
+
+	//create new token
+	token := jwt.New(jwt.SigningMethodHS256)
+
+	//secret key is used for signing and verifying token
+	secretKey := "superdupersecretkey"
+
+	//generate private/public key for encrypting/decrypting token claims (if we need to)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		fmt.Println("Could not generate key: ", err)
+		return 500, "Internal Server Error"
+	}
+	//get the public key from the private key
+	publicKey := &privateKey.PublicKey
+
+	//need these vars for encryption/decryption
+	md5hash := md5.New()
+	label := []byte("")
+
+	//actual encryption
+	encryptedUsername, err := rsa.EncryptOAEP(md5hash, rand.Reader, publicKey, []byte(req.Username), label)
+	if err != nil {
+		fmt.Println("error encrypting: ", err)
+	}
+	//set the UserID value to the encrypted username, not sure if needed.
+	token.Claims["UserID"] = req.Username
+
+	//decrypt to check if encryption  worked properly
+	decryptedUsername, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, encryptedUsername, label)
+	if err != nil {
+		fmt.Println("error decrypting: ", err)
+	}
+
+	fmt.Printf("decrypted [%x] to \n[%s]\n", token.Claims["UserID"], decryptedUsername)
+	/*
+		encrypter, err := NewEncrypter(RSA_OAEP,A128GCM, publicKey)
+		if err != nil {
+			fmt.Println("Algorithm not supported")
+			return 500, "Internal Server Error"
+		}
+	*/
+	//fmt.Println(*publicKey)
+
+	//need to sign the token with something, for now its a random string
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		fmt.Println("error getting signed key: ", err)
+		return 500, "Internal Server Error"
+	}
+	//return 200, tokenString + "\n"
+	fmt.Println("Token String: ", tokenString)
+	//need to return the secret key to the parse to verify the token
+	decryptedToken, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+	fmt.Printf("token strings\nRaw: [%s]\nHeader: [%s]\nSignature: [%s]\n", decryptedToken.Raw, decryptedToken.Header, decryptedToken.Signature)
+
+	//check if no error and valid token
+	if err == nil && decryptedToken.Valid {
+		fmt.Println("valid token, printing claims")
+		fmt.Println(decryptedToken.Claims)
+
+		/*for _, value := range decryptedToken.Claims {
+			printableValue := value.(string)
+			fmt.Println("encryptd username: ", printableValue)
+			return 200, printableValue
+			decryptedUsername2, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, []byte(printableValue), label)
+			if err != nil {
+				fmt.Println("error decrypting username in decrypted token: ", err)
+			}
+			fmt.Printf("decrypted username: [%s]", decryptedUsername2)
+		}
+		*/
+		//	decryptedUsername2, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, []byte(printableValue), label)
+
+	} else {
+		fmt.Println("Not valid: ", err)
+		return 500, "Internal Server Error"
+	}
+	return 200, tokenString
+}
+
+/*
+func gameServerInfo() string {
+	db, err := sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
+	if err != nil {
+		fmt.Println("database conn err: ", err)
+		//return 500, err
+	}
+	//var tx *sql.Tx
+	//tx, e = db.Begin()
+
+	//store contract information
+	var info ContractInformation
+	//get game id
+	rows, err := db.Query("SELECT * FROM games")
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+	defer rows.Close()
+	//scan row by row
+	for rows.Next() {
+		//must scan all variables
+		err := rows.Scan(&info.game_id, &info.map_name, &info.max_players, &info.is_verified)
+		if err != nil {
+			fmt.Println("error scanning row: ", err)
+		}
+		fmt.Println("id: ", info.game_id, "map: ", info.map_name, "max_players: ", info.max_players, "verified: ", info.is_verified)
+
+	}
+
+	return "finished"
+}*/
