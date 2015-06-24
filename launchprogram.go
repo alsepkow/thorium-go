@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"hussain/thorium-go/requests"
 	"net/http"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-martini/martini"
@@ -105,6 +106,8 @@ func PostGresQueryIDS() []int {
 	return game_ids
 }
 
+var secretKey string
+
 func main() {
 	//rand.Seed(time.Now().UnixNano())
 	//var portArg = flag.Int("p", rand.Intn(65000-10000)+10000, "specifies port, default is random int between 10000-65000")
@@ -121,6 +124,7 @@ func main() {
 	//}
 	//}
 	m := martini.Classic()
+	secretKey = "superdupersecretkey"
 	/*m.Post("/launch/:name",  func(params martini.Params) string {
 		e := Check(params["name"])
 		if e==1 {
@@ -142,11 +146,47 @@ func main() {
 	*/
 	//m.Get("/games", gameServerInfo)
 	m.Post("/client/login", handleClientLogin)
+	m.Post("/client/afterlogin", handleAfterLogin)
 	m.Run()
 	//	err := cmd.Wait()
 	//	fmt.Println(err)
 	//	fmt.Println(cmd.Path)
 	//	fmt.Println(cmd.Process.Pid)
+}
+
+func handleAfterLogin(httpReq *http.Request) (int, string) {
+	var req request.Test
+	decoder := json.NewDecoder(httpReq.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		fmt.Println("error decoding token request")
+		return 500, "Internal Server Error"
+	}
+	//need to return the secret key to the parse to verify the token
+	decryptedToken, err := jwt.Parse(req.Token, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+	fmt.Printf("token strings\nRaw: [%s]\nHeader: [%s]\nSignature: [%s]\n", decryptedToken.Raw, decryptedToken.Header, decryptedToken.Signature)
+
+	//check if no error and valid token
+	if err == nil && decryptedToken.Valid {
+		fmt.Println("token is valid and not expired")
+		//wrote this to check expirey but .Valid already does that
+		/*
+			expiredTime := decryptedToken.Claims["exp"].(float64)
+			if float64(time.Now().Unix()) > expiredTime {
+				return 500, "token expired get out of here"
+			} else {
+				return 200, "token is valid and not expired"
+			}
+
+			fmt.Println(decryptedToken.Claims)
+		*/
+	} else {
+		fmt.Println("Not valid: ", err)
+		return 500, "Internal Server Error"
+	}
+	return 200, "ok"
 }
 
 func handleClientLogin(httpReq *http.Request) (int, string) {
@@ -169,7 +209,7 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	//secret key is used for signing and verifying token
-	secretKey := "superdupersecretkey"
+	//secretKey := "superdupersecretkey"
 
 	//generate private/public key for encrypting/decrypting token claims (if we need to)
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -190,8 +230,9 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 		fmt.Println("error encrypting: ", err)
 	}
 	//set the UserID value to the encrypted username, not sure if needed.
-	token.Claims["UserID"] = req.Username
-
+	token.Claims["id"] = req.Username
+	//2 minute expiery
+	token.Claims["exp"] = time.Now().Add(time.Minute * 1).Unix()
 	//decrypt to check if encryption  worked properly
 	decryptedUsername, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, encryptedUsername, label)
 	if err != nil {
@@ -216,34 +257,6 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 	}
 	//return 200, tokenString + "\n"
 	fmt.Println("Token String: ", tokenString)
-	//need to return the secret key to the parse to verify the token
-	decryptedToken, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secretKey), nil
-	})
-	fmt.Printf("token strings\nRaw: [%s]\nHeader: [%s]\nSignature: [%s]\n", decryptedToken.Raw, decryptedToken.Header, decryptedToken.Signature)
-
-	//check if no error and valid token
-	if err == nil && decryptedToken.Valid {
-		fmt.Println("valid token, printing claims")
-		fmt.Println(decryptedToken.Claims)
-
-		/*for _, value := range decryptedToken.Claims {
-			printableValue := value.(string)
-			fmt.Println("encryptd username: ", printableValue)
-			return 200, printableValue
-			decryptedUsername2, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, []byte(printableValue), label)
-			if err != nil {
-				fmt.Println("error decrypting username in decrypted token: ", err)
-			}
-			fmt.Printf("decrypted username: [%s]", decryptedUsername2)
-		}
-		*/
-		//	decryptedUsername2, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, []byte(printableValue), label)
-
-	} else {
-		fmt.Println("Not valid: ", err)
-		return 500, "Internal Server Error"
-	}
 	return 200, tokenString
 }
 
