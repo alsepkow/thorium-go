@@ -13,7 +13,7 @@ import (
 )
 import "os/exec"
 import "fmt"
-import "strconv"
+
 import "redis"
 import "bytes"
 
@@ -61,17 +61,34 @@ func Execute(prog string) *exec.Cmd {
 
 }
 
-func RedisPush(cmdI *exec.Cmd) int {
+func RedisPush(rawtokenstring string) int {
 	spec := redis.DefaultSpec().Password("go-redis")
 	client, e := redis.NewSynchClientWithSpec(spec)
 	if e != nil {
 		fmt.Println("error creating client for: ", e)
 	}
 	defer client.Quit()
-	pidString := strconv.Itoa(cmdI.Process.Pid)
+	//pidString := strconv.Itoa(cmdI.Process.Pid)
+	decryptedToken, err := jwt.Parse(rawtokenstring, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+	//fmt.Printf("token strings\nRaw: [%s]\nHeader: [%s]\nSignature: [%s]\n", decryptedToken.Raw, decryptedToken.Header, decryptedToken.Signature)
+
+	//check if no error and valid token
+	if err == nil && decryptedToken.Valid {
+		fmt.Println("token is valid and not expired")
+
+	} else {
+		fmt.Println("Not valid: ", err)
+		return 0
+	}
+
+	userID := decryptedToken.Claims["id"].(string)
+	//fmt.Println("redis func userid: " + userID + "\n redis func raw: " + decryptedToken.Raw)
 	var buf bytes.Buffer
-	buf.Write([]byte(pidString))
-	e = client.Hset("server:pids", "pid", buf.Bytes())
+	buf.Write([]byte(decryptedToken.Raw))
+	e = client.Hset("clients/token", userID, buf.Bytes())
+	//to retrieve token in redis-cli, do hget clients/tokens legacy
 	if e != nil {
 		fmt.Println("error writing to list")
 		return 0
@@ -162,6 +179,7 @@ func handleAfterLogin(httpReq *http.Request) (int, string) {
 		fmt.Println("error decoding token request")
 		return 500, "Internal Server Error"
 	}
+
 	//need to return the secret key to the parse to verify the token
 	decryptedToken, err := jwt.Parse(req.Token, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secretKey), nil
@@ -186,6 +204,7 @@ func handleAfterLogin(httpReq *http.Request) (int, string) {
 		fmt.Println("Not valid: ", err)
 		return 500, "Internal Server Error"
 	}
+
 	return 200, "ok"
 }
 
@@ -232,8 +251,9 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 	//set the UserID value to the encrypted username, not sure if needed.
 	token.Claims["id"] = req.Username
 	//2 minute expiery
-	token.Claims["exp"] = time.Now().Add(time.Minute * 1).Unix()
+	token.Claims["exp"] = time.Now().Add(time.Minute * 2).Unix()
 	//decrypt to check if encryption  worked properly
+
 	decryptedUsername, err := rsa.DecryptOAEP(md5hash, rand.Reader, privateKey, encryptedUsername, label)
 	if err != nil {
 		fmt.Println("error decrypting: ", err)
@@ -255,6 +275,14 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 		fmt.Println("error getting signed key: ", err)
 		return 500, "Internal Server Error"
 	}
+
+	success := RedisPush(tokenString)
+	if success == 1 {
+		fmt.Println("pushed to redis")
+	} else {
+		fmt.Println("could not push to redis")
+	}
+
 	//return 200, tokenString + "\n"
 	fmt.Println("Token String: ", tokenString)
 	return 200, tokenString
