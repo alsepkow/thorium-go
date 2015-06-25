@@ -1,7 +1,11 @@
-package main
+//package main
+
+package generate
 
 import (
 	"fmt"
+	"log"
+	"time"
 
 	"code.google.com/p/intmath/intgr"
 )
@@ -16,12 +20,41 @@ type Coordinate2D struct {
 	Y int
 }
 
-func (c *Coordinate2D) ToString() string {
+func (c *Coordinate2D) String() string {
 	return fmt.Sprintf("(%d,%d)", c.X, c.Y)
 }
 
 func (c *Coordinate2D) GetIndex() int {
-	return 0
+
+	x := c.Y
+	y := -c.X
+	u := x + y
+	v := x - y
+	var res int
+
+	if u > 0 {
+		if v > 0 {
+			x <<= 1
+			res = x*(x-1) + v
+		} else {
+			y <<= 1
+			res = y*(y-1) + v
+		}
+	} else {
+		if v < 0 {
+			x <<= 1
+			res = -x*(1-x) - v
+		} else {
+			y <<= 1
+			res = -y*(1-y) - v
+		}
+	}
+	return res
+}
+
+func (c *Coordinate2D) GetFirst() Coordinate2D {
+	var first Coordinate2D
+	return first
 }
 
 func IndexToCoordinate(index int) Coordinate2D {
@@ -65,18 +98,37 @@ func position(index int) (int, int) {
 	default:
 		return c - offset - 1, -c
 	}
-
 }
 
-func main() {
+func test() {
+
+	loop_size := 500000
+	step_size := 1
+	step_start := 1
+
+	start_t := time.Now()
+
 	var coord Coordinate2D
+
 	var msg string
 	var rev int
-	for i := 1; i < 1000; i++ {
+	for i := step_start; i < loop_size; i = i + step_size {
 		coord = IndexToCoordinate(i)
-		msg = coord.ToString()
+		msg = coord.String()
 		rev = coord.GetIndex()
 		fmt.Printf("start=%d, calc=%s, reverse=%d\n", i, msg, rev)
 	}
+
+	loop_t := time.Now()
+
+	coord = IndexToCoordinate(2147483647)
+	fmt.Printf("max int 32 calc=%s rev=%d\n", coord.String(), coord.GetIndex())
+
+	coord = IndexToCoordinate(9223372036854775000)
+	fmt.Printf("max int 64 calc=%s rev=%d\n", coord.String(), coord.GetIndex())
+
+	max_t := time.Now()
+
+	log.Println("testing 10K loop: ", loop_t.Sub(start_t), " int64 max:", max_t.Sub(loop_t))
 
 }
