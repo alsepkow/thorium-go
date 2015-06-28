@@ -1,7 +1,10 @@
 package main
 
-import "thorium-go/generate"
+import (
+	"fmt"
+	_ "thorium-go/generate"
+)
 
 func main() {
-	generate.Start()
+	fmt.Println("Start ... Now")
 }
