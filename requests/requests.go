@@ -13,3 +13,8 @@ type RegisterGame struct {
 type RegisterMachine struct {
 	Port int
 }
+
+type Authentication struct {
+	Username string
+	Password string
+}
