@@ -25,9 +25,9 @@ func main() {
 	m.Post("/clients/disconnect", handleClientDisconnect)
 
 	// characters
-	m.Post("/new", handleCreateCharacter)
-	m.Get("/:id", handleGetCharacter)
-	m.Get("/:id/simple", handleGetCharSimple)
+	m.Post("/characters/new", handleCreateCharacter)
+	m.Get("/characters/:id", handleGetCharacter)
+	m.Get("/characters/:id/profile", handleGetCharProfile)
 
 	// games
 	m.Post("/games/:id/register_server", handleRegisterServer)
@@ -52,7 +52,7 @@ func main() {
 }
 
 func handleGetStatusRequest(httpReq *http.Request) (int, string) {
-	return 500, "Not Implemented"
+	return 200, "OK"
 }
 
 func handleClientLogin(httpReq *http.Request) (int, string) {
@@ -75,7 +75,7 @@ func handleGetCharacter(httpReq *http.Request) (int, string) {
 	return 500, "Not Implemented"
 }
 
-func handleGetCharSimple(httpReq *http.Request) (int, string) {
+func handleGetCharProfile(httpReq *http.Request) (int, string) {
 	return 500, "Not Implemented"
 }
 
