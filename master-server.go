@@ -1,15 +1,19 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"hussain/thorium-go/database"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"thorium-go/database"
+	"time"
 )
 import "github.com/go-martini/martini"
-import "thorium-go/requests"
+import "hussain/thorium-go/requests"
 
 func main() {
 	fmt.Println("hello world")
@@ -60,7 +64,78 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 }
 
 func handleClientRegister(httpReq *http.Request) (int, string) {
-	return 500, "Not Implemented"
+	//using authentication struct for now because i haven't added the token yet
+	var req request.Authentication
+	decoder := json.NewDecoder(httpReq.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		fmt.Println("error decoding register account request (authentication)")
+		return 500, "Internal Server Error"
+	}
+
+	//found this cool method to generate salts
+	saltSize := 16
+	//allocates 16+sha1.Size bytes to the bufer
+	//creates slice with length saltSize and capacity of saltSize+sha1.Size
+	buf := make([]byte, saltSize, saltSize+sha1.Size)
+
+	//fill buf with random data (linux is /dev/urandom)
+	_, e := io.ReadFull(rand.Reader, buf)
+
+	if e != nil {
+		fmt.Println("filling buf with random data failed")
+		return 500, "Internal Server Error"
+	}
+
+	dirtySalt := sha1.New()
+	dirtySalt.Write(buf)
+	dirtySalt.Write([]byte(req.Password))
+	salt := dirtySalt.Sum(buf)
+
+	combination := string(salt) + string(req.Password)
+	passwordHash := sha1.New()
+	io.WriteString(passwordHash, combination)
+	fmt.Printf("Password Hash : %x \n", passwordHash.Sum(nil))
+	fmt.Printf("BSalt: %x \n", salt)
+
+	exist, err := thordb.CheckUsernameExists(req.Username)
+	if err != nil {
+		fmt.Println("error with checking username")
+		return 500, "Internal Server Error"
+	}
+	if exist {
+		return 409, "Conflict with username! Username already in use"
+	}
+
+	uid, err := thordb.RegisterAccount(req.Username, passwordHash.Sum(nil), salt, "sha1", time.Now(), time.Now())
+	if err != nil {
+		fmt.Println("error with registration")
+		return 500, "Internal Server Error"
+	}
+	fmt.Println("User id : ", uid)
+
+	return 201, "client successfully registered"
+	/*
+		//testing wrong password and right password to make sure it works
+		combination2 := string(salt) + "asdsad"
+		passwordHash2 := sha1.New()
+		io.WriteString(passwordHash2, combination2)
+		fmt.Printf("Password Hash : %x \n", passwordHash2.Sum(nil))
+
+		combination3 := string(salt) + "blah"
+		passwordHash3 := sha1.New()
+		io.WriteString(passwordHash3, combination3)
+		fmt.Printf("Password Hash : %x \n", passwordHash3.Sum(nil))
+
+		match := bytes.Equal(passwordHash2.Sum(nil), passwordHash.Sum(nil))
+		if match {
+			fmt.Println("2 matches")
+		}
+		match = bytes.Equal(passwordHash3.Sum(nil), passwordHash.Sum(nil))
+		if match {
+			fmt.Println("3 matches")
+		}
+	*/
 }
 
 func handleClientDisconnect(httpReq *http.Request) (int, string) {

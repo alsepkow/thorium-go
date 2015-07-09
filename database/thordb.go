@@ -1,7 +1,10 @@
 package thordb
 
-import "database/sql"
-import _ "github.com/lib/pq"
+import (
+	"database/sql"
+	"fmt"
+	"time"
+)
 
 var db *sql.DB
 
@@ -75,4 +78,41 @@ func UnregisterMachine(machineId int) (bool, error) {
 	success = rows > 0
 	return success, err
 
+}
+
+func CheckUsernameExists(username string) (bool, error) {
+	fmt.Println("Checking username")
+	var exists bool
+	rows, err := db.Query("select username FROM account_data;")
+	if err != nil {
+		fmt.Println("error selecting username: ", err)
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		fmt.Println("in rows.Next()")
+		var tmpuser string
+		err := rows.Scan(&tmpuser)
+		if len(tmpuser) == 0 {
+			return false, err
+		}
+		if err != nil {
+			fmt.Println("error scanning row ", err)
+		}
+		if username == tmpuser {
+			exists = true
+			break
+		}
+	}
+	return exists, err
+
+}
+
+func RegisterAccount(username string, hashpw []byte, salt []byte, alg string, created time.Time, lastlogin time.Time) (int, error) {
+	var userId int
+	err := db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, hashpw, salt, alg, created, lastlogin).Scan(&userId)
+	if err != nil {
+		fmt.Println("error inserting account data: ", err)
+	}
+	return userId, err
 }
