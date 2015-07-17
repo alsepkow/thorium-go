@@ -245,17 +245,6 @@ func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, st
 
 	fmt.Println("[ThoriumNET] master-server.handleRegisterServer ID=", gameId)
 
-	exists, err := thordb.CheckExists(gameId)
-	if err != nil {
-		logerr("unable to connect to DB", err)
-		return 500, "Internal Server Error"
-	}
-
-	if !exists {
-		fmt.Println("game id ", strconv.Itoa(gameId), " does not exist")
-		return 400, "Bad Request"
-	}
-
 	registered, err := thordb.RegisterActiveGame(gameId, req.MachineId, req.Port)
 	if err != nil || !registered {
 		logerr("unable to register game", err)

@@ -9,6 +9,7 @@ import (
 	"log"
 	"io"
 	"errors"
+	"strconv"
 	_ "github.com/lib/pq"
 )
 
@@ -22,7 +23,14 @@ func init() {
 	}
 }
 
-func CheckExists(gameId int) (bool, error) {
+
+func RegisterNewGame(mapName string, maxPlayers int) (int, error) {
+	var gameId int
+	err := db.QueryRow("INSERT INTO games (map_name, max_players) VALUES ( $1, $2 ) RETURNING game_id", mapName, maxPlayers).Scan(&gameId)
+	return gameId, err
+}
+
+func RegisterActiveGame(gameId int, machineId int, port int) (bool, error) {
 	res, err := db.Exec("SELECT * FROM public.games WHERE game_id = $1", gameId)
 	if err != nil {
 		return false, err
@@ -35,28 +43,22 @@ func CheckExists(gameId int) (bool, error) {
 	}
 
 	exists := rows > 0
-	return exists, err
-}
+	if exists != true  {
+		log.Print("gameId ", strconv.Itoa(gameId), " does not exist")
+		return false, err
+	}
 
-func RegisterNewGame(mapName string, maxPlayers int) (int, error) {
-	var gameId int
-	err := db.QueryRow("INSERT INTO games (map_name, max_players) VALUES ( $1, $2 ) RETURNING game_id", mapName, maxPlayers).Scan(&gameId)
-	return gameId, err
-}
-
-func RegisterActiveGame(gameId int, machineId int, port int) (bool, error) {
-	res, err := db.Exec("INSERT INTO active_games (game_id, machine_id, port) VALUES ( $1, $2, $3 )", gameId, machineId, port)
+	res, err = db.Exec("INSERT INTO active_games (game_id, machine_id, port) VALUES ( $1, $2, $3 )", gameId, machineId, port)
 	if err != nil {
 		return false, err
 	}
 
-	var rows int64
 	rows, err = res.RowsAffected()
 	if err != nil {
 		return false, err
 	}
 
-	exists := rows > 0
+	exists = rows > 0
 	return exists, err
 }
 
@@ -126,7 +128,6 @@ func RegisterAccount(username string, password string) (int, error) {
 	io.WriteString(passwordHash, combination)
 	log.Printf("Password Hash : %x \n", passwordHash.Sum(nil))
 	log.Printf("BSalt: %x \n", salt)
-
 	var uid int
 	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, time.Now(), time.Now()).Scan(&uid)
 	if err != nil {
