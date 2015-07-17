@@ -4,7 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-
+	"crypto/rand"
+	"crypto/sha1"
+	"log"
+	"io"
+	"errors"
 	_ "github.com/lib/pq"
 )
 
@@ -83,37 +87,49 @@ func UnregisterMachine(machineId int) (bool, error) {
 
 }
 
-func CheckUsernameExists(username string) (bool, error) {
+func RegisterAccount(username string, password string) (int, error) {
 	fmt.Println("Checking username")
-	var exists bool
-	rows, err := db.Query("select username FROM account_data;")
-	if err != nil {
-		fmt.Println("error selecting username: ", err)
-		return false, err
+	var foundname string
+	err := db.QueryRow("SELECT username FROM account_data WHERE username LIKE $1;", username).Scan(&foundname)
+	switch {
+	case err == sql.ErrNoRows:
+		log.Print("Username available")
+	case err != nil:
+		log.Print(err)
+		return 0, err
+	default:
+		log.Print("Username is already in use")
+		return 0, errors.New("Username is already in use")
 	}
-	defer rows.Close()
-	for rows.Next() {
-		fmt.Println("in rows.Next()")
-		var tmpuser string
-		err := rows.Scan(&tmpuser)
-		if len(tmpuser) == 0 {
-			return false, err
-		}
-		if err != nil {
-			fmt.Println("error scanning row ", err)
-		}
-		if username == tmpuser {
-			exists = true
-			break
-		}
+
+	saltSize := 16
+	var alg string = "sha1"
+	//allocates 16+sha1.Size bytes to the bufer
+	//creates slice with length saltSize and capacity of saltSize+sha1.Size
+	buf := make([]byte, saltSize, saltSize+sha1.Size)
+
+	//fill buf with random data (linux is /dev/urandom)
+	_, e := io.ReadFull(rand.Reader, buf)
+
+	if e != nil {
+		fmt.Println("filling buf with random data failed")
+		return 500, e
 	}
-	return exists, err
 
-}
 
-func RegisterAccount(username string, hashpw []byte, salt []byte, alg string, created time.Time, lastlogin time.Time) (int, error) {
+	dirtySalt := sha1.New()
+	dirtySalt.Write(buf)
+	dirtySalt.Write([]byte(password))
+	salt := dirtySalt.Sum(buf)
+
+	combination := string(salt) + string(password)
+	passwordHash := sha1.New()
+	io.WriteString(passwordHash, combination)
+	log.Printf("Password Hash : %x \n", passwordHash.Sum(nil))
+	log.Printf("BSalt: %x \n", salt)
+
 	var userId int
-	err := db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, hashpw, salt, alg, created, lastlogin).Scan(&userId)
+	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, time.Now(), time.Now()).Scan(&userId)
 	if err != nil {
 		fmt.Println("error inserting account data: ", err)
 	}

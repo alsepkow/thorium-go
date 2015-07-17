@@ -1,16 +1,13 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"thorium-go/database"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
+	"log"
 )
 import "github.com/go-martini/martini"
 import "thorium-go/requests"
@@ -73,48 +70,25 @@ func handleClientRegister(httpReq *http.Request) (int, string) {
 		return 500, "Internal Server Error"
 	}
 
+	var username string
+	var password string
+
+	username, password, err = sanitize(req.Username, req.Password)
+	if err != nil {
+		log.Print("Error sanitizing authentication request",req.Username, req.Password)
+		return 400, "Bad Request"
+	}
+
+
+	uid, err := thordb.RegisterAccount(username, password)
+	if err != nil {
+		fmt.Println("Error registering account")
+		return 500, "internal server error"
+	}
 	//found this cool method to generate salts
-	saltSize := 16
-	//allocates 16+sha1.Size bytes to the bufer
-	//creates slice with length saltSize and capacity of saltSize+sha1.Size
-	buf := make([]byte, saltSize, saltSize+sha1.Size)
+	log.Print("User id : ", uid)
 
-	//fill buf with random data (linux is /dev/urandom)
-	_, e := io.ReadFull(rand.Reader, buf)
-
-	if e != nil {
-		fmt.Println("filling buf with random data failed")
-		return 500, "Internal Server Error"
-	}
-
-	dirtySalt := sha1.New()
-	dirtySalt.Write(buf)
-	dirtySalt.Write([]byte(req.Password))
-	salt := dirtySalt.Sum(buf)
-
-	combination := string(salt) + string(req.Password)
-	passwordHash := sha1.New()
-	io.WriteString(passwordHash, combination)
-	fmt.Printf("Password Hash : %x \n", passwordHash.Sum(nil))
-	fmt.Printf("BSalt: %x \n", salt)
-
-	exist, err := thordb.CheckUsernameExists(req.Username)
-	if err != nil {
-		fmt.Println("error with checking username")
-		return 500, "Internal Server Error"
-	}
-	if exist {
-		return 409, "Conflict with username! Username already in use"
-	}
-
-	uid, err := thordb.RegisterAccount(req.Username, passwordHash.Sum(nil), salt, "sha1", time.Now(), time.Now())
-	if err != nil {
-		fmt.Println("error with registration")
-		return 500, "Internal Server Error"
-	}
-	fmt.Println("User id : ", uid)
-
-	return 201, "client successfully registered"
+	return 200, "client successfully registered"
 	/*
 		//testing wrong password and right password to make sure it works
 		combination2 := string(salt) + "asdsad"
@@ -291,6 +265,10 @@ func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, st
 	fmt.Println("Found game ", gameId)
 	return 200, "OK"
 
+}
+
+func sanitize(username string, password string) (string, string, error) {
+	return username, password, nil
 }
 
 // TODO: Refactor into logging package
