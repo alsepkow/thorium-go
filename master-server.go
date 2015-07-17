@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"hussain/thorium-go/database"
+	"thorium-go/database"
 	"io"
 	"net/http"
 	"strconv"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 import "github.com/go-martini/martini"
-import "hussain/thorium-go/requests"
+import "thorium-go/requests"
 
 func main() {
 	fmt.Println("hello world")
