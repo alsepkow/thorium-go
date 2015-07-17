@@ -18,7 +18,6 @@ func init() {
 	var err error
 	db, err = sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
 }
@@ -128,10 +127,10 @@ func RegisterAccount(username string, password string) (int, error) {
 	log.Printf("Password Hash : %x \n", passwordHash.Sum(nil))
 	log.Printf("BSalt: %x \n", salt)
 
-	var userId int
-	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, time.Now(), time.Now()).Scan(&userId)
+	var uid int
+	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, time.Now(), time.Now()).Scan(&uid)
 	if err != nil {
 		fmt.Println("error inserting account data: ", err)
 	}
-	return userId, err
+	return uid, err
 }

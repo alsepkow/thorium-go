@@ -85,7 +85,7 @@ func handleClientRegister(httpReq *http.Request) (int, string) {
 		fmt.Println("Error registering account")
 		return 500, "internal server error"
 	}
-	//found this cool method to generate salts
+
 	log.Print("User id : ", uid)
 
 	return 200, "client successfully registered"

@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS "active_games" (
 
 CREATE TABLE IF NOT EXISTS "account_data" (
 	"user_id" SERIAL PRIMARY KEY,
-	"username" VARCHAR(128) NOT NULL,
+	"username" TEXT NOT NULL,
 	"password" BYTEA NOT NULL,
 	"salt" BYTEA NOT NULL,
-	"algorithm" VARCHAR(128) NOT NULL,
+	"algorithm" TEXT NOT NULL,
 	"createdon" TIMESTAMP NOT NULL,
 	"lastlogin" TIMESTAMP NOT NULL
 );
