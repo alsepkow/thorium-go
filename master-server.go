@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"thorium-go/database"
 	"net/http"
 	"strconv"
 	"strings"
-	"thorium-go/database"
+	"log"
 )
 import "github.com/go-martini/martini"
 import "thorium-go/requests"
@@ -60,7 +61,55 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 }
 
 func handleClientRegister(httpReq *http.Request) (int, string) {
-	return 500, "Not Implemented"
+	//using authentication struct for now because i haven't added the token yet
+	var req request.Authentication
+	decoder := json.NewDecoder(httpReq.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		fmt.Println("error decoding register account request (authentication)")
+		return 500, "Internal Server Error"
+	}
+
+	var username string
+	var password string
+
+	username, password, err = sanitize(req.Username, req.Password)
+	if err != nil {
+		log.Print("Error sanitizing authentication request",req.Username, req.Password)
+		return 400, "Bad Request"
+	}
+
+
+	uid, err := thordb.RegisterAccount(username, password)
+	if err != nil {
+		fmt.Println("Error registering account")
+		return 500, "internal server error"
+	}
+
+	log.Print("User id : ", uid)
+
+	return 200, "client successfully registered"
+	/*
+		//testing wrong password and right password to make sure it works
+		combination2 := string(salt) + "asdsad"
+		passwordHash2 := sha1.New()
+		io.WriteString(passwordHash2, combination2)
+		fmt.Printf("Password Hash : %x \n", passwordHash2.Sum(nil))
+
+		combination3 := string(salt) + "blah"
+		passwordHash3 := sha1.New()
+		io.WriteString(passwordHash3, combination3)
+		fmt.Printf("Password Hash : %x \n", passwordHash3.Sum(nil))
+
+		match := bytes.Equal(passwordHash2.Sum(nil), passwordHash.Sum(nil))
+		if match {
+			fmt.Println("2 matches")
+		}
+		match = bytes.Equal(passwordHash3.Sum(nil), passwordHash.Sum(nil))
+		if match {
+			fmt.Println("3 matches")
+		}
+	*/
 }
 
 func handleClientDisconnect(httpReq *http.Request) (int, string) {
@@ -216,6 +265,10 @@ func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, st
 	fmt.Println("Found game ", gameId)
 	return 200, "OK"
 
+}
+
+func sanitize(username string, password string) (string, string, error) {
+	return username, password, nil
 }
 
 // TODO: Refactor into logging package

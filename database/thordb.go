@@ -1,7 +1,16 @@
 package thordb
 
-import "database/sql"
-import _ "github.com/lib/pq"
+import (
+	"database/sql"
+	"fmt"
+	"time"
+	"crypto/rand"
+	"crypto/sha1"
+	"log"
+	"io"
+	"errors"
+	_ "github.com/lib/pq"
+)
 
 var db *sql.DB
 
@@ -75,4 +84,53 @@ func UnregisterMachine(machineId int) (bool, error) {
 	success = rows > 0
 	return success, err
 
+}
+
+func RegisterAccount(username string, password string) (int, error) {
+	fmt.Println("Checking username")
+	var foundname string
+	err := db.QueryRow("SELECT username FROM account_data WHERE username LIKE $1;", username).Scan(&foundname)
+	switch {
+	case err == sql.ErrNoRows:
+		log.Print("Username available")
+	case err != nil:
+		log.Print(err)
+		return 0, err
+	default:
+		log.Print("Username is already in use")
+		return 0, errors.New("Username is already in use")
+	}
+
+	saltSize := 16
+	var alg string = "sha1"
+	//allocates 16+sha1.Size bytes to the bufer
+	//creates slice with length saltSize and capacity of saltSize+sha1.Size
+	buf := make([]byte, saltSize, saltSize+sha1.Size)
+
+	//fill buf with random data (linux is /dev/urandom)
+	_, e := io.ReadFull(rand.Reader, buf)
+
+	if e != nil {
+		fmt.Println("filling buf with random data failed")
+		return 500, e
+	}
+
+
+	dirtySalt := sha1.New()
+	dirtySalt.Write(buf)
+	dirtySalt.Write([]byte(password))
+	salt := dirtySalt.Sum(buf)
+
+	combination := string(salt) + string(password)
+	passwordHash := sha1.New()
+	io.WriteString(passwordHash, combination)
+	log.Printf("Password Hash : %x \n", passwordHash.Sum(nil))
+	log.Printf("BSalt: %x \n", salt)
+
+	var uid int
+	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, time.Now(), time.Now()).Scan(&uid)
+	if err != nil {
+		fmt.Println("error inserting account data: ", err)
+	}
+	return uid, err
 }

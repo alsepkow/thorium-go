@@ -18,3 +18,12 @@ CREATE TABLE IF NOT EXISTS "active_games" (
 	"port" INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS "account_data" (
+	"user_id" SERIAL PRIMARY KEY,
+	"username" TEXT NOT NULL,
+	"password" BYTEA NOT NULL,
+	"salt" BYTEA NOT NULL,
+	"algorithm" TEXT NOT NULL,
+	"createdon" TIMESTAMP NOT NULL,
+	"lastlogin" TIMESTAMP NOT NULL
+);
