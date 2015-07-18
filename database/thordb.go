@@ -28,24 +28,22 @@ var signKey *rsa.PrivateKey
 var verifyKey *rsa.PublicKey
 
 func init() {
-	log.Print("1")
 	// check rsa
-
 	signBytes, err := ioutil.ReadFile(privKeyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	verifyBytes, err := ioutil.ReadFile(pubKeyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	verifyKey, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	// check postgres
 	db, err = sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
@@ -212,6 +210,10 @@ func LoginAccount(username string, password string) (string, error) {
 	if err != nil {
 		return token_str, err
 	}
+
+	var session AccountSession
+	session.UserID = uid
+	session.Token = token_str
 
 	return token_str, nil
 }
