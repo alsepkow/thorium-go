@@ -168,7 +168,7 @@ func LoginAccount(username string, password string) (string, error) {
 		return token, err
 	}
 
-	combination := password + string(salt)
+	combination := string(salt) + string(password)
 	passwordHash := sha1.New()
 	io.WriteString(passwordHash, combination)
 	match := bytes.Equal(passwordHash.Sum(nil), hashedPassword)
