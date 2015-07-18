@@ -3,29 +3,57 @@ package thordb
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha1"
 	"database/sql"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"strconv"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-redis/redis"
 	_ "github.com/lib/pq"
 )
 
+const privKeyPath string = "keys/app.rsa"
+const pubKeyPath string = "keys/app.rsa.pub"
+
 var db *sql.DB
 var kvstore *redis.Client
+var signKey *rsa.PrivateKey
+var verifyKey *rsa.PublicKey
 
 func init() {
-	var err error
+	log.Print("1")
+	// check rsa
+
+	signBytes, err := ioutil.ReadFile(privKeyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	verifyBytes, err := ioutil.ReadFile(pubKeyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	verifyKey, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// check postgres
 	db, err = sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
+	// check redis
 	kvstore = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
@@ -34,7 +62,7 @@ func init() {
 
 	_, err = kvstore.Ping().Result()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
@@ -152,7 +180,7 @@ func RegisterAccount(username string, password string) (int, error) {
 }
 
 func LoginAccount(username string, password string) (string, error) {
-	var token string
+	var token_str string
 
 	// get the account info from db
 	var hashedPassword []byte
@@ -162,21 +190,28 @@ func LoginAccount(username string, password string) (string, error) {
 	switch {
 	case err == sql.ErrNoRows:
 		log.Printf("thordb: user does not exist %s", username)
-		return token, errors.New("thordb: does not exist")
+		return token_str, errors.New("thordb: does not exist")
 	case err != nil:
 		log.Print(err)
-		return token, err
+		return token_str, err
 	}
 
 	combination := string(salt) + string(password)
 	passwordHash := sha1.New()
 	io.WriteString(passwordHash, combination)
 	match := bytes.Equal(passwordHash.Sum(nil), hashedPassword)
-	if match {
-		// register a new session in redis
-		token = "OK"
-		return token, nil
-	} else {
-		return token, errors.New("thordb: invalid password")
+	if !match {
+		return token_str, errors.New("thordb: invalid password")
 	}
+
+	// create the jwt token
+	token := jwt.New(jwt.SigningMethodHS256)
+	token.Claims["username"] = username
+	token.Claims["uid"] = uid
+	token_str, err = token.SignedString(signKey)
+	if err != nil {
+		return token_str, err
+	}
+
+	return token_str, nil
 }
