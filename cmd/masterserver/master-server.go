@@ -58,7 +58,35 @@ func handleGetStatusRequest(httpReq *http.Request) (int, string) {
 }
 
 func handleClientLogin(httpReq *http.Request) (int, string) {
-	return 500, "Not Implemented"
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.Authentication
+	err := decoder.Decode(&req)
+	if err != nil {
+		log.Print("bad json request", httpReq.Body)
+		return 400, "Bad Request"
+	}
+
+	var username string
+	var password string
+	username, password, err = sanitize(req.Username, req.Password)
+	if err != nil {
+		log.Print("Error sanitizing authentication request", req.Username, req.Password)
+		return 400, "Bad Request"
+	}
+
+	var success bool
+	var token string
+	token, success, err = thordb.LoginAccount(username, password)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+	if !success {
+		log.Print(fmt.Sprintf("thordb: failed login attempt: %s//%s", username, password))
+		return 400, "Bad Request"
+	}
+
+	return 200, token
 }
 
 func handleClientRegister(httpReq *http.Request) (int, string) {
