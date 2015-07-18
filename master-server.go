@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"thorium-go/database"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"log"
+	"thorium-go/database"
 )
 import "github.com/go-martini/martini"
 import "thorium-go/requests"
@@ -18,6 +18,7 @@ func main() {
 	m := martini.Classic()
 
 	// status
+	m.Get("/", handleGetStatusRequest)
 	m.Get("/status", handleGetStatusRequest)
 
 	// client
@@ -75,20 +76,24 @@ func handleClientRegister(httpReq *http.Request) (int, string) {
 
 	username, password, err = sanitize(req.Username, req.Password)
 	if err != nil {
-		log.Print("Error sanitizing authentication request",req.Username, req.Password)
+		log.Print("Error sanitizing authentication request", req.Username, req.Password)
 		return 400, "Bad Request"
 	}
 
-
 	uid, err := thordb.RegisterAccount(username, password)
 	if err != nil {
-		fmt.Println("Error registering account")
-		return 500, "internal server error"
+		log.Print(err)
+
+		switch err.Error() {
+		case "thordb: already in use":
+			return 400, "Bad Request"
+		default:
+			return 500, "Internal Server Error"
+		}
 	}
 
-	log.Print("User id : ", uid)
-
-	return 200, "client successfully registered"
+	log.Print("thordb: registered player (", uid, ")")
+	return 200, fmt.Sprintf("UserId%s", strconv.Itoa(uid))
 	/*
 		//testing wrong password and right password to make sure it works
 		combination2 := string(salt) + "asdsad"

@@ -1,14 +1,15 @@
 package thordb
 
 import (
-	"database/sql"
-	"fmt"
-	"time"
 	"crypto/rand"
 	"crypto/sha1"
-	"log"
-	"io"
+	"database/sql"
 	"errors"
+	"fmt"
+	"io"
+	"log"
+	"time"
+
 	_ "github.com/lib/pq"
 )
 
@@ -98,7 +99,7 @@ func RegisterAccount(username string, password string) (int, error) {
 		return 0, err
 	default:
 		log.Print("Username is already in use")
-		return 0, errors.New("Username is already in use")
+		return 0, errors.New("thordb: already in use")
 	}
 
 	saltSize := 16
@@ -112,9 +113,8 @@ func RegisterAccount(username string, password string) (int, error) {
 
 	if e != nil {
 		fmt.Println("filling buf with random data failed")
-		return 500, e
+		return 0, e
 	}
-
 
 	dirtySalt := sha1.New()
 	dirtySalt.Write(buf)
@@ -128,9 +128,12 @@ func RegisterAccount(username string, password string) (int, error) {
 	log.Printf("BSalt: %x \n", salt)
 
 	var uid int
-	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, time.Now(), time.Now()).Scan(&uid)
+	var timenow = time.Now()
+	err = db.QueryRow("INSERT INTO account_data (username, password, salt, algorithm, createdon, lastlogin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id", username, passwordHash.Sum(nil), salt, alg, timenow, timenow).Scan(&uid)
 	if err != nil {
 		fmt.Println("error inserting account data: ", err)
+		return 0, err
 	}
+
 	return uid, err
 }
