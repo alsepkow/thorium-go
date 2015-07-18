@@ -74,16 +74,20 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 		return 400, "Bad Request"
 	}
 
-	var success bool
 	var token string
-	token, success, err = thordb.LoginAccount(username, password)
+	token, err = thordb.LoginAccount(username, password)
 	if err != nil {
 		log.Print(err)
-		return 500, "Internal Server Error"
-	}
-	if !success {
-		log.Print(fmt.Sprintf("thordb: failed login attempt: %s//%s", username, password))
-		return 400, "Bad Request"
+		switch err.Error() {
+		case "thordb: does not exist":
+			log.Print(fmt.Sprintf("thordb: failed login attempt: %s//%s", username, password))
+			return 400, "Bad Request"
+		case "thordb: invalid password":
+			log.Print(fmt.Sprintf("thordb: failed login attempt: %s//%s", username, password))
+			return 400, "Bad Request"
+		default:
+			return 500, "Internal Server Error"
+		}
 	}
 
 	return 200, token
@@ -111,7 +115,6 @@ func handleClientRegister(httpReq *http.Request) (int, string) {
 	uid, err := thordb.RegisterAccount(username, password)
 	if err != nil {
 		log.Print(err)
-
 		switch err.Error() {
 		case "thordb: already in use":
 			return 400, "Bad Request"
