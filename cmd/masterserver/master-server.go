@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -128,31 +129,25 @@ func handleClientRegister(httpReq *http.Request) (int, string) {
 
 	log.Print("thordb: registered player (", uid, ")")
 	return 200, fmt.Sprintf("UserId%s", strconv.Itoa(uid))
-	/*
-		//testing wrong password and right password to make sure it works
-		combination2 := string(salt) + "asdsad"
-		passwordHash2 := sha1.New()
-		io.WriteString(passwordHash2, combination2)
-		fmt.Printf("Password Hash : %x \n", passwordHash2.Sum(nil))
-
-		combination3 := string(salt) + "blah"
-		passwordHash3 := sha1.New()
-		io.WriteString(passwordHash3, combination3)
-		fmt.Printf("Password Hash : %x \n", passwordHash3.Sum(nil))
-
-		match := bytes.Equal(passwordHash2.Sum(nil), passwordHash.Sum(nil))
-		if match {
-			fmt.Println("2 matches")
-		}
-		match = bytes.Equal(passwordHash3.Sum(nil), passwordHash.Sum(nil))
-		if match {
-			fmt.Println("3 matches")
-		}
-	*/
 }
 
 func handleClientDisconnect(httpReq *http.Request) (int, string) {
-	return 500, "Not Implemented"
+
+	// getting session key might become more complicated later (add a request struct)
+	bytes, err := ioutil.ReadAll(httpReq.Body)
+	if err != nil {
+		return 400, "Bad Request"
+	}
+
+	accountSession := string(bytes)
+	err = thordb.Disconnect(accountSession)
+	if err != nil {
+		log.Print("thordb couldnt disconnect, something went wrong")
+		log.Print(err)
+		return 400, "Bad Request"
+	}
+
+	return 200, "OK"
 }
 
 func handleCreateCharacter(httpReq *http.Request) (int, string) {

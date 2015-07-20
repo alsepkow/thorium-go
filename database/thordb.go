@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -23,8 +24,8 @@ const privKeyPath string = "keys/app.rsa"
 const pubKeyPath string = "keys/app.rsa.pub"
 
 // redis keys
-const accountSessionKey string = "clients/%d/session/account"
-const characterSessionKey string = "clients/%d/session/character"
+const accountSessionKey string = "sessions/account/%d"
+const characterSessionKey string = "sessions/character/%d"
 const gameSessionKey string = "games/%d"
 
 var db *sql.DB
@@ -251,4 +252,43 @@ func LoginAccount(username string, password string) (string, error) {
 	kvstore.Set(fmt.Sprintf(accountSessionKey, uid), token_str, 0)
 	kvstore.Expire(fmt.Sprintf(accountSessionKey, uid), time.Second*120)
 	return token_str, nil
+}
+
+func Disconnect(accountSessionToken string) error {
+
+	token, err := jwt.Parse(accountSessionToken, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("thordb: disconnect w/ token: \n%+v\n", token)
+
+	var uidFloat64 float64
+	uidFloat64, ok := token.Claims["uid"].(float64)
+	uid := int(uidFloat64)
+	if !ok {
+		log.Print("couldnt convert uid")
+		log.Print("actual type", reflect.TypeOf(token.Claims["uid"]))
+		return errors.New("thordb: invalid session")
+	}
+
+	// ToDo: update account + character in postgres before deleting from redis
+
+	log.Printf("thordb: disconnect uid = %d", uid)
+	var count int64
+	count, err = kvstore.Del(fmt.Sprintf(accountSessionKey, uid)).Result()
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		log.Print("couldnt find session")
+		return errors.New("thordb: invalid session")
+	}
+
+	log.Print("client disconnected %d", uid)
+	return nil
 }
