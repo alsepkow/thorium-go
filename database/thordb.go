@@ -22,6 +22,11 @@ import (
 const privKeyPath string = "keys/app.rsa"
 const pubKeyPath string = "keys/app.rsa.pub"
 
+// redis keys
+const accountSessionKey string = "clients/%d/session/account"
+const characterSessionKey string = "clients/%d/session/character"
+const gameSessionKey string = "games/%d"
+
 var db *sql.DB
 var kvstore *redis.Client
 var signKey *rsa.PrivateKey
@@ -29,7 +34,11 @@ var verifyKey *rsa.PublicKey
 
 func init() {
 	// check rsa
-	signBytes, err := ioutil.ReadFile(privKeyPath)
+	var signBytes []byte
+	var verifyBytes []byte
+	var err error
+	log.Print("opening app.rsa keys")
+	signBytes, err = ioutil.ReadFile(privKeyPath)
 	if err != nil {
 		log.Print(err)
 	}
@@ -37,7 +46,7 @@ func init() {
 	if err != nil {
 		log.Print(err)
 	}
-	verifyBytes, err := ioutil.ReadFile(pubKeyPath)
+	verifyBytes, err = ioutil.ReadFile(pubKeyPath)
 	if err != nil {
 		log.Print(err)
 	}
@@ -45,12 +54,15 @@ func init() {
 	if err != nil {
 		log.Print(err)
 	}
+
+	log.Print("testing postgres connection")
 	// check postgres
 	db, err = sql.Open("postgres", "user=thoriumnet password=thoriumtest dbname=thoriumnet host=localhost")
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	log.Print("testing redis connection")
 	// check redis
 	kvstore = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
@@ -62,6 +74,8 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Print("thordb initialization complete")
 }
 
 func RegisterNewGame(mapName string, maxPlayers int) (int, error) {
@@ -203,17 +217,38 @@ func LoginAccount(username string, password string) (string, error) {
 	}
 
 	// create the jwt token
-	token := jwt.New(jwt.SigningMethodHS256)
-	token.Claims["username"] = username
+	token := jwt.New(jwt.SigningMethodRS256)
 	token.Claims["uid"] = uid
+	token.Claims["iat"] = time.Now()
 	token_str, err = token.SignedString(signKey)
+
 	if err != nil {
 		return token_str, err
 	}
 
-	var session AccountSession
-	session.UserID = uid
-	session.Token = token_str
+	// I'm going to insert the raw token data into redis here, but is that security proof?
+	// In future we could maybe use a field in the encrypted claim as the session key? im not sure if that works or not though
 
+	// first check if a session already exists, if so reject as "already logged on" unless the time is substantially old (> 5min)
+	var alreadyLoggedIn bool = true
+
+	_, err = kvstore.Get(fmt.Sprintf(accountSessionKey, uid)).Result()
+	if err != nil {
+		switch err.Error() {
+		case "redis: nil":
+			alreadyLoggedIn = false
+		default:
+			return token_str, err
+		}
+	}
+
+	if alreadyLoggedIn {
+		return token_str, errors.New("thordb: already logged in")
+	}
+
+	// set the session in redis and give it a 2 minute expiry
+	// the client needs to ping once every 2 minutes to refresh the expiry
+	kvstore.Set(fmt.Sprintf(accountSessionKey, uid), token_str, 0)
+	kvstore.Expire(fmt.Sprintf(accountSessionKey, uid), time.Second*120)
 	return token_str, nil
 }

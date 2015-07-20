@@ -85,6 +85,9 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 		case "thordb: invalid password":
 			log.Print(fmt.Sprintf("thordb: failed login attempt: %s//%s", username, password))
 			return 400, "Bad Request"
+		case "thordb: already logged in":
+			log.Printf("thordb: failed login attempt (already logged in): %s//%s", username, password)
+			return 400, "Bad Request"
 		default:
 			return 500, "Internal Server Error"
 		}

@@ -225,7 +225,7 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 	*/
 
 	//create new token
-	token := jwt.New(jwt.SigningMethodHS256)
+	token := jwt.New(jwt.SigningMethodRS256)
 
 	//secret key is used for signing and verifying token
 	//secretKey := "superdupersecretkey"
