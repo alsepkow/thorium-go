@@ -27,7 +27,3 @@ CREATE TABLE IF NOT EXISTS "account_data" (
 	"createdon" TIMESTAMP NOT NULL,
 	"lastlogin" TIMESTAMP NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS "character_data" (
-	"name" TEXT NOT NULL
-);
