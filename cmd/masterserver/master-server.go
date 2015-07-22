@@ -157,16 +157,22 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 	decoder := json.NewDecoder(httpReq.Body)
 	err := decoder.Decode(&req)
 	if err != nil {
-		fmt.Println("error decoding character creation request (invalid data?)")
-		return 500, "Internal Server Error"
+		log.Print("character create req json decoding error %s", httpReq.Body)
+		return 400, "Bad Request"
 	}
 	var character thordb.Character
 	character.Name = req.Name
 
 	_, err = thordb.CreateCharacter(req.Token, character)
 	if err != nil {
-		log.Print("thordb could not create character")
-		return 400, "Bad Request"
+		log.Print(err)
+		switch err.Error() {
+		case "thordb: already in use":
+			log.Print("thordb could not create character")
+			return 400, "Bad Request"
+		default:
+			return 500, "Internal Server Error"
+		}
 	}
 	return 200, "OK"
 }

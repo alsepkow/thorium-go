@@ -332,7 +332,7 @@ func validateToken(token_str string) (int, error) {
 	if token_str == savedToken {
 		return uid, nil
 	} else {
-		return 0, err
+		return 0, errors.New("thordb: invalid session")
 	}
 }
 
@@ -352,7 +352,6 @@ func CreateCharacter(userToken string, character Character) (int, error) {
 		log.Print(err)
 		return 0, err
 	default:
-		log.Print("Name is already in use")
 		return 0, errors.New("thordb: already in use")
 	}
 
