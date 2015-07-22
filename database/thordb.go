@@ -292,3 +292,12 @@ func Disconnect(accountSessionToken string) error {
 	log.Print("client disconnected %d", uid)
 	return nil
 }
+
+// helper funcs
+func storeAccount(session *AccountSession) {
+	// store in postgres
+}
+
+func storeCharacter(character_session *CharacterSession) {
+
+}
