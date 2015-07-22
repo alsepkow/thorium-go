@@ -294,10 +294,12 @@ func Disconnect(accountSessionToken string) error {
 }
 
 // helper funcs
+
 func storeAccount(session *AccountSession) {
-	// store in postgres
+	// use this to store an account update in postgres
 }
 
-func storeCharacter(character_session *CharacterSession) {
+func storeCharacter(character_session *CharacterSession) error {
+	// helper method to take a snapshot and save update to postgres
 
 }
