@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"thorium-go/database"
 )
 import "github.com/go-martini/martini"
-import "thorium-go/requests"
+import (
+	"thorium-go/database"
+	"thorium-go/requests"
+)
 
 func main() {
 	fmt.Println("hello world")
@@ -151,7 +153,22 @@ func handleClientDisconnect(httpReq *http.Request) (int, string) {
 }
 
 func handleCreateCharacter(httpReq *http.Request) (int, string) {
-	return 500, "Not Implemented"
+	var req request.CreateCharacter
+	decoder := json.NewDecoder(httpReq.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		fmt.Println("error decoding character creation request (invalid data?)")
+		return 500, "Internal Server Error"
+	}
+	var character thordb.Character
+	character.Name = req.Name
+
+	_, err = thordb.CreateCharacter(req.Token, character)
+	if err != nil {
+		log.Print("thordb could not create character")
+		return 400, "Bad Request"
+	}
+	return 200, "OK"
 }
 
 func handleGetCharacter(httpReq *http.Request) (int, string) {

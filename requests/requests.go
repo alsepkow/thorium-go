@@ -18,3 +18,8 @@ type Authentication struct {
 	Username string
 	Password string
 }
+
+type CreateCharacter struct {
+	Token string
+	Name  string
+}
