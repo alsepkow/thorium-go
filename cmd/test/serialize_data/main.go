@@ -1,5 +1,11 @@
 package main
 
+import (
+	"encoding/json"
+	"log"
+	"thorium-go/database"
+)
+
 func main() {
 
 	testCharacterJson()
@@ -8,5 +14,12 @@ func main() {
 
 func testCharacterJson() {
 
-	var character Character
+	var character thordb.Character
+	b, err := json.Marshal(&character)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	log.Print(string(b))
 }
