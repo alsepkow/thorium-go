@@ -342,7 +342,6 @@ func CreateCharacter(userToken string, character Character) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Print("UID: ", uid)
 	var foundname string
 	err = db.QueryRow("SELECT name FROM characters WHERE name LIKE $1", character.Name).Scan(&foundname)
 	switch {
@@ -362,6 +361,5 @@ func CreateCharacter(userToken string, character Character) (int, error) {
 	}
 	character.ID = id
 	character.UserID = uid
-	log.Print("ID: ", id)
 	return id, nil
 }
