@@ -294,12 +294,72 @@ func Disconnect(accountSessionToken string) error {
 }
 
 // helper funcs
-
 func storeAccount(session *AccountSession) {
 	// use this to store an account update in postgres
 }
 
-func storeCharacter(character_session *CharacterSession) error {
+//func storeCharacter(character_session *CharacterSession) error {
+func storeCharacter() {
 	// helper method to take a snapshot and save update to postgres
+}
 
+func validateToken(token_str string) (int, error) {
+
+	token, err := jwt.Parse(token_str, func(t *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	var uidFloat64 float64
+	uidFloat64, ok := token.Claims["uid"].(float64)
+	uid := int(uidFloat64)
+	if !ok {
+		return 0, errors.New("thordb: invalid session")
+	}
+
+	// ToDo: update account + character in postgres before deleting from redis
+
+	var savedToken string
+	savedToken, err = kvstore.Get(fmt.Sprintf(accountSessionKey, uid)).Result()
+
+	if err != nil {
+		return 0, err
+	}
+
+	if token_str == savedToken {
+		return uid, nil
+	} else {
+		return 0, errors.New("thordb: invalid session")
+	}
+}
+
+func CreateCharacter(userToken string, character Character) (int, error) {
+
+	uid, err := validateToken(userToken)
+	if err != nil {
+		return 0, err
+	}
+	var foundname string
+	err = db.QueryRow("SELECT name FROM characters WHERE name LIKE $1", character.Name).Scan(&foundname)
+	switch {
+	case err == sql.ErrNoRows:
+		log.Printf("thordb: name is available %s", character.Name)
+	case err != nil:
+		log.Print(err)
+		return 0, err
+	default:
+		return 0, errors.New("thordb: already in use")
+	}
+
+	var id int
+	err = db.QueryRow("INSERT INTO characters (uid, name, game_data) VALUES ($1, $2, $3) RETURNING id", uid, character.Name, `{"somedata":"someotherdata"}`).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	character.ID = id
+	character.UserID = uid
+	return id, nil
 }

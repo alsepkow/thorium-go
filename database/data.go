@@ -32,7 +32,6 @@ func (account *Account) NewPublicView() AccountPublicView {
 	publicView.CharacterIDs = account.CharacterIDs
 	publicView.CreatedOn = account.CreatedOn
 	publicView.LastLogin = account.LastLogin
-
 	return publicView
 }
 
