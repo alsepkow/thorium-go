@@ -171,6 +171,8 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 		switch err.Error() {
 		case "thordb: already in use":
 			return 400, "Bad Request"
+		case "token contains an invalid number of segments":
+			return 400, "Bad Request"
 		default:
 			return 500, "Internal Server Error"
 		}
