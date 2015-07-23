@@ -1,17 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
+	"thorium-go/requests"
 )
 
 import "bytes"
 
 import "io/ioutil"
 
-func LoginRequest() (string, error) {
-	var buf = []byte(`{"Username":"legacy", "Password":"blah"}`)
-	req, err := http.NewRequest("POST", "http://localhost:3000/clients/login", bytes.NewBuffer(buf))
+func LoginRequest(username string, password string) (string, error) {
+	var loginReq request.Authentication
+	loginReq.Username = username
+	loginReq.Password = password
+	jsonBytes, err := json.Marshal(&loginReq)
+	if err != nil {
+		return "", err
+	}
+	//var buf = []byte(`{"Username":"legacy", "Password":"blah"}`)
+	req, err := http.NewRequest("POST", "http://localhost:6960/clients/login", bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Print("error with request: ", err)
 		return "err", err
@@ -24,16 +33,22 @@ func LoginRequest() (string, error) {
 		return "err", err
 	}
 	defer resp.Body.Close()
-	log.Print("token generated")
 	body, _ := ioutil.ReadAll(resp.Body)
 	tokenString := bytes.NewBuffer(body).String()
+	log.Print("account token:\n", tokenString)
 	return tokenString, nil
 }
 
-func CharacterCreateRequest(token string) (string, error) {
+func CharacterCreateRequest(token string, name string) (string, error) {
 
-	var characterCreateJSON = []byte(`{"Token":"` + token + `", "Name" : "legacy33"}`)
-	req, err := http.NewRequest("POST", "http://localhost:3000/characters/new", bytes.NewBuffer(characterCreateJSON))
+	var charCreateReq request.CreateCharacter
+	charCreateReq.AccountToken = token
+	charCreateReq.Name = name
+	jsonBytes, err := json.Marshal(&charCreateReq)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest("POST", "http://localhost:6960/characters/new", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -50,7 +65,7 @@ func CharacterCreateRequest(token string) (string, error) {
 func DisconnectRequest(token string) (string, error) {
 
 	buf := []byte(token)
-	req, err := http.NewRequest("POST", "http://localhost:3000/clients/disconnect", bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", "http://localhost:6960/clients/disconnect", bytes.NewBuffer(buf))
 	if err != nil {
 		log.Print("error with request: ", err)
 		return "err", err
@@ -71,12 +86,12 @@ func DisconnectRequest(token string) (string, error) {
 func main() {
 	//time.Sleep(time.Minute * 2)
 
-	token, err := LoginRequest()
+	token, err := LoginRequest("legacy", "blah")
 	if err != nil {
 		log.Print("error sending login request", err)
 	}
 
-	_, err = CharacterCreateRequest(token)
+	_, err = CharacterCreateRequest(token, "legacy33")
 	if err != nil {
 		log.Print("error sending create character request", err)
 	}

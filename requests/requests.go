@@ -1,25 +1,26 @@
 package request
 
 type NewGame struct {
-	Map        string
-	MaxPlayers int
+	CharacterToken string `json:"characterToken"`
+	Map            string `json:"map"`
+	MaxPlayers     int    `json:"maxPlayers"`
 }
 
 type RegisterGame struct {
-	MachineId int
-	Port      int
+	MachineId int `json:"machineId"`
+	Port      int `json:"gameListenPort"`
 }
 
 type RegisterMachine struct {
-	Port int
+	Port int `json:"serviceListenPort"`
 }
 
 type Authentication struct {
-	Username string
-	Password string
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type CreateCharacter struct {
-	Token string
-	Name  string
+	AccountToken string `json:"accountToken"`
+	Name         string `json:"name"`
 }

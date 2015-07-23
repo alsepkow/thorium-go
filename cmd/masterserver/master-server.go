@@ -165,7 +165,7 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 	character.Name = req.Name
 
 	var characterSession *thordb.CharacterSession
-	characterSession, err = thordb.CreateCharacter(req.Token, character)
+	characterSession, err = thordb.CreateCharacter(req.AccountToken, character)
 	if err != nil {
 		log.Print(err)
 		switch err.Error() {

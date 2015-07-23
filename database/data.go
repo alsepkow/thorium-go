@@ -44,8 +44,9 @@ func (account *Account) Validate() (bool, error) {
 }
 
 type CharacterSession struct {
-	ID     int `json:"id"`
-	UserID int `json:"uid"`
+	ID     int    `json:"id"`
+	UserID int    `json:"uid"`
+	Token  string `json:"charSessionToken"`
 	*CharacterData
 }
 
