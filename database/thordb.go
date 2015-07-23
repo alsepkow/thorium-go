@@ -373,6 +373,25 @@ func CreateCharacter(userToken string, character *CharacterData) (*CharacterSess
 	return charSession, nil
 }
 
+func SelectCharacter(userToken string, id int) (*CharacterSession, error) {
+
+	uid, err := validateToken(userToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// read from characters table and get game_data json string
+	var game_data string
+	err = db.QueryRow("SELECT game_data from characters WHERE uid = $1 AND id = $2", uid, id).Scan(&game_data)
+
+	// todo: create new jwt token with character id in claims and return new session with it
+	var charSession CharacterSession
+	// temp: store raw data as token string
+	charSession.Token = game_data
+	log.Print(game_data)
+	return &charSession, nil
+}
+
 // ToDo: remove this func from public, only exposed for testing
 // this should be used internally to thordb only!
 func StoreCharacterSnapshot(charSession *CharacterSession) (bool, error) {

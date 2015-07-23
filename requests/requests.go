@@ -24,3 +24,8 @@ type CreateCharacter struct {
 	AccountToken string `json:"accountToken"`
 	Name         string `json:"name"`
 }
+
+type SelectCharacter struct {
+	AccountToken string `json:"accountToken"`
+	ID           int    `json:"characterId"`
+}

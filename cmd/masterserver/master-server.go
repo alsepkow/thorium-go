@@ -33,6 +33,7 @@ func main() {
 	m.Post("/characters/new", handleCreateCharacter)
 	m.Get("/characters/:id", handleGetCharacter)
 	m.Get("/characters/:id/profile", handleGetCharProfile)
+	m.Post("/characters/:id/select", handleCharacterSelect)
 
 	// games
 	m.Post("/games/:id/register_server", handleRegisterServer)
@@ -321,6 +322,29 @@ func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, st
 	fmt.Println("Found game ", gameId)
 	return 200, "OK"
 
+}
+
+func handleCharacterSelect(httpReq *http.Request) (int, string) {
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.SelectCharacter
+	err := decoder.Decode(&req)
+	if err != nil || req.ID == 0 || req.AccountToken == "" {
+		log.Print("bad json request", httpReq.Body)
+		return 400, "Bad Request"
+	}
+
+	charSession, err := thordb.SelectCharacter(req.AccountToken, req.ID)
+	if err != nil {
+		return 500, "Internal Server Error"
+	}
+
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(charSession.Token)
+	if err != nil {
+		return 500, "Internal Server Error"
+	}
+
+	return 200, string(jsonBytes)
 }
 
 func sanitize(username string, password string) (string, string, error) {

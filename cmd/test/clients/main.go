@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"thorium-go/requests"
@@ -37,6 +38,29 @@ func LoginRequest(username string, password string) (string, error) {
 	tokenString := bytes.NewBuffer(body).String()
 	log.Print("account token:\n", tokenString)
 	return tokenString, nil
+}
+
+func CharacterSelectRequest(token string, id int) (string, error) {
+
+	var selectReq request.SelectCharacter
+	selectReq.AccountToken = token
+	selectReq.ID = id
+	jsonBytes, err := json.Marshal(&selectReq)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:6960/characters/%d/select", id), bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Print("Error with request 2: ", err)
+		return "err", err
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Print("select character response: ", string(body))
+	return string(body), nil
 }
 
 func CharacterCreateRequest(token string, name string) (string, error) {
@@ -91,7 +115,8 @@ func main() {
 		log.Print("error sending login request", err)
 	}
 
-	_, err = CharacterCreateRequest(token, "legacy33")
+	_, err = CharacterSelectRequest(token, 2)
+	//_, err = CharacterCreateRequest(token, "legacy33")
 	if err != nil {
 		log.Print("error sending create character request", err)
 	}
