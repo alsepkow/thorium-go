@@ -49,7 +49,7 @@ var max_towns int
 var min_outposts int
 var max_outposts int
 
-func init() {
+func __init() {
 	fmt.Println("Init")
 
 	loop_size = 8

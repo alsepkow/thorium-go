@@ -332,11 +332,11 @@ func validateToken(token_str string) (int, error) {
 	}
 }
 
-func CreateCharacter(userToken string, character *Character) (int, error) {
+func CreateCharacter(userToken string, character *CharacterData) (*CharacterSession, error) {
 
 	uid, err := validateToken(userToken)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	var foundname string
 	err = db.QueryRow("SELECT name FROM characters WHERE name LIKE $1", character.Name).Scan(&foundname)
@@ -345,36 +345,44 @@ func CreateCharacter(userToken string, character *Character) (int, error) {
 		log.Printf("thordb: name is available %s", character.Name)
 	case err != nil:
 		log.Print(err)
-		return 0, err
+		return nil, err
 	default:
-		return 0, errors.New("thordb: already in use")
+		return nil, errors.New("thordb: already in use")
 	}
 
 	var jsonBytes []byte
-	jsonBytes, err = json.Marshal(character.GameData)
+	jsonBytes, err = json.Marshal(character)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	var id int
 	err = db.QueryRow("INSERT INTO characters (uid, name, game_data) VALUES ($1, $2, $3) RETURNING id", uid, character.Name, string(jsonBytes)).Scan(&id)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return id, nil
+	charSession := NewCharacterSessionFrom(character)
+	charSession.ID = id
+	charSession.UserID = uid
+
+	var coordIndex int
+	coordIndex = character.World.GetIndex()
+	// store location into character_locations table??
+	log.Printf("player created on world %d", coordIndex)
+	return charSession, nil
 }
 
 // ToDo: remove this func from public, only exposed for testing
 // this should be used internally to thordb only!
-func StoreCharacterSnapshot(character *Character) (bool, error) {
-	b, err := json.Marshal(character.GameData)
+func StoreCharacterSnapshot(charSession *CharacterSession) (bool, error) {
+	b, err := json.Marshal(charSession.CharacterData)
 	if err != nil {
 		return false, err
 	}
 
 	var res sql.Result
-	res, err = db.Exec("UPDATE characters SET game_data = $1 WHERE id = $2 AND uid = $3", string(b), character.ID, character.UserID)
+	res, err = db.Exec("UPDATE characters SET game_data = $1 WHERE id = $2 AND uid = $3", string(b), charSession.ID, charSession.UserID)
 	if err != nil {
 		return false, err
 	}

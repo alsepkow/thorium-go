@@ -53,7 +53,7 @@ func main() {
 	m.Post("/machines/:id/unregister", handleUnregisterMachine)
 	m.Delete("/machines/:id", handleUnregisterMachine)
 
-	m.Run()
+	m.RunOnAddr(":6960")
 }
 
 func handleGetStatusRequest(httpReq *http.Request) (int, string) {
@@ -161,20 +161,27 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 		return 400, "Bad Request"
 	}
 
-	character := thordb.NewCharacter()
+	character := thordb.NewCharacterData()
 	character.Name = req.Name
 
-	_, err = thordb.CreateCharacter(req.Token, character)
+	var characterSession *thordb.CharacterSession
+	characterSession, err = thordb.CreateCharacter(req.Token, character)
 	if err != nil {
 		log.Print(err)
 		switch err.Error() {
 		case "thordb: already in use":
-			log.Print("thordb could not create character")
 			return 400, "Bad Request"
 		default:
 			return 500, "Internal Server Error"
 		}
 	}
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(characterSession.CharacterData)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+	log.Printf("thordb: created character %d - %s\ncharacter details:\n%s", characterSession.ID, characterSession.Name, string(jsonBytes))
 	return 200, "OK"
 }
 

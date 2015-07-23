@@ -13,15 +13,8 @@ func main() {
 }
 
 func testCharacterJson() {
-	character := thordb.NewCharacter()
-	b, err := json.Marshal(character)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	log.Print(string(b))
-	b, err = json.Marshal(character.GameData)
+	charSession := thordb.NewCharacterSession()
+	b, err := json.Marshal(charSession.CharacterData)
 	if err != nil {
 		log.Print(err)
 		return
@@ -29,10 +22,11 @@ func testCharacterJson() {
 
 	log.Print(string(b))
 
-	character.ID = 2
-	character.UserID = 5
-	// public only for tsting
-	_, err = thordb.StoreCharacterSnapshot(character)
+	// using legacy33 test char
+	charSession.ID = 2
+	charSession.UserID = 5
+	// this needs to require a machine token later
+	_, err = thordb.StoreCharacterSnapshot(charSession)
 	if err != nil {
 		log.Print(err)
 	} else {
