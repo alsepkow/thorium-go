@@ -1,55 +1,88 @@
 package main
 
 import (
+	"log"
 	"net/http"
-	"thorium-go/requests"
 )
+
 import "bytes"
-import "fmt"
+
 import "io/ioutil"
 
-func main() {
+func LoginRequest() (string, error) {
 	var buf = []byte(`{"Username":"legacy", "Password":"blah"}`)
 	req, err := http.NewRequest("POST", "http://localhost:3000/clients/login", bytes.NewBuffer(buf))
 	if err != nil {
-		fmt.Println("error with request: ", err)
+		log.Print("error with request: ", err)
+		return "err", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("error with sending request", err)
+		log.Print("error with sending request", err)
+		return "err", err
 	}
 	defer resp.Body.Close()
-	fmt.Println("token generated")
-	var charCreateReq request.CreateCharacter
+	log.Print("token generated")
 	body, _ := ioutil.ReadAll(resp.Body)
-	charCreateReq.Token = bytes.NewBuffer(body).String()
+	tokenString := bytes.NewBuffer(body).String()
+	return tokenString, nil
+}
 
-	//time.Sleep(time.Minute * 2)
+func CharacterCreateRequest(token string) (string, error) {
 
-	var tokenB = []byte(`{"Token":"` + charCreateReq.Token + `", "Name" : "legacy"}`)
-	req2, err := http.NewRequest("POST", "http://localhost:3000/characters/new", bytes.NewBuffer(tokenB))
-	req2.Header.Set("Content-Type", "application/json")
-	resp2, err := client.Do(req2)
+	var characterCreateJSON = []byte(`{"Token":"` + token + `", "Name" : "legacy33"}`)
+	req, err := http.NewRequest("POST", "http://localhost:3000/characters/new", bytes.NewBuffer(characterCreateJSON))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error with request 2: ", err)
+		log.Print("Error with request 2: ", err)
+		return "err", err
 	}
-	defer resp2.Body.Close()
-	body2, _ := ioutil.ReadAll(resp2.Body)
-	fmt.Println("response Body:", string(body2))
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Print("create character response: ", string(body))
+	return string(body), nil
+}
 
-	buf = []byte(charCreateReq.Token)
-	req, err = http.NewRequest("POST", "http://localhost:3000/clients/disconnect", bytes.NewBuffer(buf))
+func DisconnectRequest(token string) (string, error) {
+
+	buf := []byte(token)
+	req, err := http.NewRequest("POST", "http://localhost:3000/clients/disconnect", bytes.NewBuffer(buf))
 	if err != nil {
-		fmt.Println("error with request: ", err)
+		log.Print("error with request: ", err)
+		return "err", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client = &http.Client{}
-	resp, err = client.Do(req)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("error with sending request", err)
+		log.Print("error with sending request", err)
+		return "err", err
 	}
 	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Print("disonnect response: ", string(body))
+	return string(body), nil
+}
 
+func main() {
+	//time.Sleep(time.Minute * 2)
+
+	token, err := LoginRequest()
+	if err != nil {
+		log.Print("error sending login request", err)
+	}
+
+	_, err = CharacterCreateRequest(token)
+	if err != nil {
+		log.Print("error sending create character request", err)
+	}
+
+	_, err = DisconnectRequest(token)
+	if err != nil {
+		log.Print("error sending disconnect request", err)
+	}
 }
