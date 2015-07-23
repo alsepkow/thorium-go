@@ -41,14 +41,21 @@ func (account *Account) Validate() (bool, error) {
 }
 
 type Character struct {
-	ID     int
-	UserID int
-	Name   string
+	ID     int    `json:"id"`
+	UserID int    `json:"uid"`
+	Name   string `json:"name"`
 	GameData
 }
 
 type GameData struct {
-	Weapons   []int
-	Inventory []int
-	Health    float64
+	Weapons   []int   `json:"weapons"`
+	Inventory []int   `json:"inventory"`
+	Health    float64 `json:"currentHealth"`
+}
+
+func NewCharacter() *Character {
+	var character Character
+	character.Weapons = make([]int, 2)
+	character.Inventory = make([]int, 25)
+	return &character
 }

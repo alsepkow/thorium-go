@@ -160,7 +160,8 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 		log.Print("character create req json decoding error %s", httpReq.Body)
 		return 400, "Bad Request"
 	}
-	var character thordb.Character
+
+	character := thordb.NewCharacter()
 	character.Name = req.Name
 
 	_, err = thordb.CreateCharacter(req.Token, character)

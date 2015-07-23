@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -100,7 +101,7 @@ func RegisterActiveGame(gameId int, machineId int, port int) (bool, error) {
 	exists := rows > 0
 	if exists != true {
 		log.Print("gameId ", strconv.Itoa(gameId), " does not exist")
-		return false, err
+		return false, errors.New("thordb: does not exist")
 	}
 
 	res, err = db.Exec("INSERT INTO active_games (game_id, machine_id, port) VALUES ( $1, $2, $3 )", gameId, machineId, port)
@@ -298,11 +299,6 @@ func storeAccount(session *AccountSession) {
 	// use this to store an account update in postgres
 }
 
-//func storeCharacter(character_session *CharacterSession) error {
-func storeCharacter() {
-	// helper method to take a snapshot and save update to postgres
-}
-
 func validateToken(token_str string) (int, error) {
 
 	token, err := jwt.Parse(token_str, func(t *jwt.Token) (interface{}, error) {
@@ -336,7 +332,7 @@ func validateToken(token_str string) (int, error) {
 	}
 }
 
-func CreateCharacter(userToken string, character Character) (int, error) {
+func CreateCharacter(userToken string, character *Character) (int, error) {
 
 	uid, err := validateToken(userToken)
 	if err != nil {
@@ -354,12 +350,43 @@ func CreateCharacter(userToken string, character Character) (int, error) {
 		return 0, errors.New("thordb: already in use")
 	}
 
-	var id int
-	err = db.QueryRow("INSERT INTO characters (uid, name, game_data) VALUES ($1, $2, $3) RETURNING id", uid, character.Name, `{"somedata":"someotherdata"}`).Scan(&id)
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(character.GameData)
 	if err != nil {
 		return 0, err
 	}
-	character.ID = id
-	character.UserID = uid
+
+	var id int
+	err = db.QueryRow("INSERT INTO characters (uid, name, game_data) VALUES ($1, $2, $3) RETURNING id", uid, character.Name, string(jsonBytes)).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+
 	return id, nil
+}
+
+// ToDo: remove this func from public, only exposed for testing
+// this should be used internally to thordb only!
+func StoreCharacterSnapshot(character *Character) (bool, error) {
+	b, err := json.Marshal(character.GameData)
+	if err != nil {
+		return false, err
+	}
+
+	var res sql.Result
+	res, err = db.Exec("UPDATE characters SET game_data = $1 WHERE id = $2 AND uid = $3", string(b), character.ID, character.UserID)
+	if err != nil {
+		return false, err
+	}
+
+	var rowsAffected int64
+	rowsAffected, err = res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if rowsAffected == 0 {
+		return false, errors.New("thordb: does not exist")
+	}
+	return true, nil
 }
