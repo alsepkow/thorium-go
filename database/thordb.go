@@ -362,9 +362,22 @@ func CreateCharacter(userToken string, character *CharacterData) (*CharacterSess
 		return nil, err
 	}
 
+	// create new jwt token with character id in claims and return new session with it
+	token := jwt.New(jwt.SigningMethodRS256)
+	token.Claims["uid"] = uid
+	token.Claims["id"] = id
+	token.Claims["iat"] = time.Now()
+
+	var token_str string
+	token_str, err = token.SignedString(signKey)
+	if err != nil {
+		return nil, err
+	}
+
 	charSession := NewCharacterSessionFrom(character)
-	charSession.ID = id
 	charSession.UserID = uid
+	charSession.ID = id
+	charSession.Token = token_str
 
 	var coordIndex int
 	coordIndex = character.World.GetIndex()
@@ -383,13 +396,42 @@ func SelectCharacter(userToken string, id int) (*CharacterSession, error) {
 	// read from characters table and get game_data json string
 	var game_data string
 	err = db.QueryRow("SELECT game_data from characters WHERE uid = $1 AND id = $2", uid, id).Scan(&game_data)
+	if err != nil {
+		return nil, err
+	}
+
+	var character CharacterData
+	json.Unmarshal([]byte(game_data), &character)
+	if err != nil {
+		log.Print("thordb: unable to construct character from db data")
+		log.Print(err)
+		return nil, err
+	}
 
 	// todo: create new jwt token with character id in claims and return new session with it
-	var charSession CharacterSession
-	// temp: store raw data as token string
-	charSession.Token = game_data
-	log.Print(game_data)
-	return &charSession, nil
+	// create the jwt token
+	token := jwt.New(jwt.SigningMethodRS256)
+	token.Claims["uid"] = uid
+	token.Claims["id"] = id
+	token.Claims["iat"] = time.Now()
+
+	var token_str string
+	token_str, err = token.SignedString(signKey)
+	if err != nil {
+		return nil, err
+	}
+
+	charSession := NewCharacterSessionFrom(&character)
+	charSession.UserID = uid
+	charSession.ID = id
+	charSession.Token = token_str
+
+	err = kvstore.Set(fmt.Sprintf(characterSessionKey, charSession.ID), charSession.Token, 0).Err()
+	if err != nil {
+		log.Print("thordb: kvstore unreachable")
+		log.Print(err)
+	}
+	return charSession, nil
 }
 
 // ToDo: remove this func from public, only exposed for testing
