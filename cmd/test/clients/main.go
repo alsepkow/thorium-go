@@ -65,7 +65,6 @@ func CharacterSelectRequest(token string, id int) (string, error) {
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	log.Print("select character response: ", string(body))
 	return string(body), nil
 }
 
@@ -127,6 +126,12 @@ func main() {
 	//	if err != nil {
 	//		log.Print(err)
 	//	}
+
+	//	chars := make([10]int)
+	//	_, err = ViewCharacters(&chars)
+	if err != nil {
+		log.Print(err)
+	}
 	// foreach character data print it
 	// here
 
@@ -140,6 +145,15 @@ func main() {
 	//if err != nil {
 	//	log.Print("error sending create character request", err)
 	//}
+
+	var charSession string
+	charSession, err = CharacterSelectRequest(token, 5)
+	//charSession, err = CharacterCreateRequest(token, "legacy33")
+	if err != nil {
+		log.Print("error sending create character request", err)
+	}
+
+	log.Print("character session:\n", charSession)
 
 	_, err = DisconnectRequest(resp.UserToken)
 	if err != nil {

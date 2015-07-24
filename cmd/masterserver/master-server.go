@@ -197,7 +197,7 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 		return 500, "Internal Server Error"
 	}
 	log.Printf("thordb: created character %d - %s\ncharacter details:\n%s", characterSession.ID, characterSession.Name, string(jsonBytes))
-	return 200, "OK"
+	return 200, characterSession.Token
 }
 
 func handleGetCharacter(httpReq *http.Request) (int, string) {
@@ -347,12 +347,14 @@ func handleCharacterSelect(httpReq *http.Request) (int, string) {
 
 	charSession, err := thordb.SelectCharacter(req.AccountToken, req.ID)
 	if err != nil {
+		log.Print(err)
 		return 500, "Internal Server Error"
 	}
 
 	var jsonBytes []byte
 	jsonBytes, err = json.Marshal(charSession.Token)
 	if err != nil {
+		log.Print(err)
 		return 500, "Internal Server Error"
 	}
 
