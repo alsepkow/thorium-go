@@ -54,7 +54,7 @@ func main() {
 	m.Post("/machines/:id/unregister", handleUnregisterMachine)
 	m.Delete("/machines/:id", handleUnregisterMachine)
 
-	m.RunOnAddr(":6960")
+	m.RunOnAddr(":3000")
 }
 
 func handleGetStatusRequest(httpReq *http.Request) (int, string) {
@@ -62,6 +62,7 @@ func handleGetStatusRequest(httpReq *http.Request) (int, string) {
 }
 
 func handleClientLogin(httpReq *http.Request) (int, string) {
+
 	decoder := json.NewDecoder(httpReq.Body)
 	var req request.Authentication
 	err := decoder.Decode(&req)
@@ -98,7 +99,17 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 		}
 	}
 	log.Print("List of character ID's: ", charIDs)
-	return 200, token
+
+	var resp request.LoginResponse
+	resp.UserToken = token
+	resp.CharacterIDs = charIDs
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(&resp)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+	return 200, string(jsonBytes)
 }
 
 func handleClientRegister(httpReq *http.Request) (int, string) {

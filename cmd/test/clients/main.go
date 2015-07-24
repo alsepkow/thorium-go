@@ -12,32 +12,38 @@ import "bytes"
 
 import "io/ioutil"
 
-func LoginRequest(username string, password string) (string, error) {
+func LoginRequest(username string, password string) (request.LoginResponse, error) {
 	var loginReq request.Authentication
+	var martiniResponse request.LoginResponse
 	loginReq.Username = username
 	loginReq.Password = password
 	jsonBytes, err := json.Marshal(&loginReq)
 	if err != nil {
-		return "", err
+		return martiniResponse, err
 	}
 
-	req, err := http.NewRequest("POST", "http://localhost:6960/clients/login", bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", "http://localhost:3000/clients/login", bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Print("error with request: ", err)
-		return "err", err
+		return martiniResponse, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Print("error with sending request", err)
-		return "err", err
+		return martiniResponse, err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	tokenString := bytes.NewBuffer(body).String()
-	log.Print("account token:\n", tokenString)
-	return tokenString, nil
+
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&martiniResponse)
+	if err != nil {
+		log.Print("bad json request", resp.Body)
+		return martiniResponse, err
+	}
+
+	return martiniResponse, nil
 }
 
 func CharacterSelectRequest(token string, id int) (string, error) {
@@ -49,7 +55,7 @@ func CharacterSelectRequest(token string, id int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:6960/characters/%d/select", id), bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:3000/characters/%d/select", id), bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -72,7 +78,7 @@ func CharacterCreateRequest(token string, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest("POST", "http://localhost:6960/characters/new", bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", "http://localhost:3000/characters/new", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -89,7 +95,7 @@ func CharacterCreateRequest(token string, name string) (string, error) {
 func DisconnectRequest(token string) (string, error) {
 
 	buf := []byte(token)
-	req, err := http.NewRequest("POST", "http://localhost:6960/clients/disconnect", bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", "http://localhost:3000/clients/disconnect", bytes.NewBuffer(buf))
 	if err != nil {
 		log.Print("error with request: ", err)
 		return "err", err
@@ -110,28 +116,32 @@ func DisconnectRequest(token string) (string, error) {
 func main() {
 	//time.Sleep(time.Minute * 2)
 
-	token, err := LoginRequest("legacy", "blah")
+	resp, err := LoginRequest("legacy", "blah")
 	if err != nil {
 		log.Print("error sending login request", err)
 	}
-
-	chars := make([10]int)
-	_, err = ViewCharacters(&chars)
-	if err != nil {
-		log.Print(err)
-	}
+	log.Print("LoginResponse Token: ", resp.UserToken)
+	log.Print("LoginResponse Character ID's: ", resp.CharacterIDs)
+	//chars := make([10]int)
+	//_, err = ViewCharacters(&chars)
+	//	if err != nil {
+	//		log.Print(err)
+	//	}
 	// foreach character data print it
 	// here
 
 	// use this when done above
 	//_, err = CharacterSelectRequest(token, chars[0])
-	_, err = CharacterSelectRequest(token, 2)
-	//_, err = CharacterCreateRequest(token, "legacy33")
-	if err != nil {
-		log.Print("error sending create character request", err)
-	}
+	//	_, err = CharacterSelectRequest(token, 2)
 
-	_, err = DisconnectRequest(token)
+	//_, err = CharacterSelectRequest(token, 2)
+
+	//_, err = CharacterCreateRequest(token, "legacy33")
+	//if err != nil {
+	//	log.Print("error sending create character request", err)
+	//}
+
+	_, err = DisconnectRequest(resp.UserToken)
 	if err != nil {
 		log.Print("error sending disconnect request", err)
 	}
