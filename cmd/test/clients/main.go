@@ -20,7 +20,7 @@ func LoginRequest(username string, password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//var buf = []byte(`{"Username":"legacy", "Password":"blah"}`)
+
 	req, err := http.NewRequest("POST", "http://localhost:6960/clients/login", bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Print("error with request: ", err)
@@ -115,6 +115,16 @@ func main() {
 		log.Print("error sending login request", err)
 	}
 
+	chars := make([10]int)
+	_, err = ViewCharacters(&chars)
+	if err != nil {
+		log.Print(err)
+	}
+	// foreach character data print it
+	// here
+
+	// use this when done above
+	//_, err = CharacterSelectRequest(token, chars[0])
 	_, err = CharacterSelectRequest(token, 2)
 	//_, err = CharacterCreateRequest(token, "legacy33")
 	if err != nil {
