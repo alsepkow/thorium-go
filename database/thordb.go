@@ -193,8 +193,9 @@ func RegisterAccount(username string, password string) (int, error) {
 	return uid, err
 }
 
-func LoginAccount(username string, password string) (string, error) {
+func LoginAccount(username string, password string) (string, []int, error) {
 	var token_str string
+	var charIDs []int
 
 	// get the account info from db
 	var hashedPassword []byte
@@ -204,10 +205,10 @@ func LoginAccount(username string, password string) (string, error) {
 	switch {
 	case err == sql.ErrNoRows:
 		log.Printf("thordb: user does not exist %s", username)
-		return token_str, errors.New("thordb: does not exist")
+		return token_str, charIDs, errors.New("thordb: does not exist")
 	case err != nil:
 		log.Print(err)
-		return token_str, err
+		return token_str, charIDs, err
 	}
 
 	combination := string(salt) + string(password)
@@ -215,7 +216,7 @@ func LoginAccount(username string, password string) (string, error) {
 	io.WriteString(passwordHash, combination)
 	match := bytes.Equal(passwordHash.Sum(nil), hashedPassword)
 	if !match {
-		return token_str, errors.New("thordb: invalid password")
+		return token_str, charIDs, errors.New("thordb: invalid password")
 	}
 
 	// create the jwt token
@@ -225,7 +226,7 @@ func LoginAccount(username string, password string) (string, error) {
 	token_str, err = token.SignedString(signKey)
 
 	if err != nil {
-		return token_str, err
+		return token_str, charIDs, err
 	}
 
 	// I'm going to insert the raw token data into redis here, but is that security proof?
@@ -240,19 +241,45 @@ func LoginAccount(username string, password string) (string, error) {
 		case "redis: nil":
 			alreadyLoggedIn = false
 		default:
-			return token_str, err
+			return token_str, charIDs, err
 		}
 	}
 
 	if alreadyLoggedIn {
-		return token_str, errors.New("thordb: already logged in")
+		return token_str, charIDs, errors.New("thordb: already logged in")
 	}
 
 	// set the session in redis and give it a 2 minute expiry
 	// the client needs to ping once every 2 minutes to refresh the expiry
 	kvstore.Set(fmt.Sprintf(accountSessionKey, uid), token_str, 0)
 	kvstore.Expire(fmt.Sprintf(accountSessionKey, uid), time.Second*120)
-	return token_str, nil
+
+	//starting the character id grabs
+
+	//SELECT id FROM characters WHERE uid='5'
+	charIDs = make([]int, 10)
+	rows, err := db.Query("SELECT id FROM characters where uid='5';")
+	if err != nil {
+		log.Print("error querying character ids from uid: ", err)
+		return token_str, charIDs, err
+	}
+	defer rows.Close()
+	var charID int
+	for rows.Next() {
+		err = rows.Scan(&charID)
+		if err != nil {
+			log.Print("error scanning row to get character ID: ", err)
+			return token_str, charIDs, err
+		}
+		for index, _ := range charIDs {
+			if charIDs[index] == 0 {
+				charIDs[index] = charID
+				break
+			}
+		}
+	}
+
+	return token_str, charIDs, nil
 }
 
 func Disconnect(accountSessionToken string) error {

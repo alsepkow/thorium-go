@@ -78,8 +78,9 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 		return 400, "Bad Request"
 	}
 
+	var charIDs []int
 	var token string
-	token, err = thordb.LoginAccount(username, password)
+	token, charIDs, err = thordb.LoginAccount(username, password)
 	if err != nil {
 		log.Print(err)
 		switch err.Error() {
@@ -96,7 +97,7 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 			return 500, "Internal Server Error"
 		}
 	}
-
+	log.Print("List of character ID's: ", charIDs)
 	return 200, token
 }
 
