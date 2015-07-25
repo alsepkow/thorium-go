@@ -1,7 +1,8 @@
-package main
+package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,8 +10,33 @@ import (
 )
 
 import "bytes"
-
 import "io/ioutil"
+
+var address string = "localhost"
+var port int = 6960
+
+func PingMaster() (bool, error) {
+
+	endpoint := fmt.Sprintf("http://%s:%d/status", address, port)
+	req, err := http.NewRequest("GET", endpoint, bytes.NewBuffer([]byte("")))
+	if err != nil {
+		return false, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Print("ping master - error:\n", err)
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return false, errors.New("http status error")
+	} else {
+		return true, nil
+	}
+}
 
 func LoginRequest(username string, password string) (string, error) {
 	var loginReq request.Authentication
@@ -104,37 +130,4 @@ func DisconnectRequest(token string) (string, error) {
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Print("disonnect response: ", string(body))
 	return string(body), nil
-}
-
-func main() {
-	//time.Sleep(time.Minute * 2)
-
-	token, err := LoginRequest("legacy", "blah")
-	if err != nil {
-		log.Print("error sending login request", err)
-	}
-
-	//	chars := make([10]int)
-	//	_, err = ViewCharacters(&chars)
-	if err != nil {
-		log.Print(err)
-	}
-	// foreach character data print it
-	// here
-
-	// use this when done above
-	//_, err = CharacterSelectRequest(token, chars[0])
-	var charSession string
-	charSession, err = CharacterSelectRequest(token, 6)
-	//charSession, err = CharacterCreateRequest(token, "legacy33")
-	if err != nil {
-		log.Print("error sending create character request", err)
-	}
-
-	log.Print("character session:\n", charSession)
-
-	_, err = DisconnectRequest(token)
-	if err != nil {
-		log.Print("error sending disconnect request", err)
-	}
 }

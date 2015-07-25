@@ -25,8 +25,10 @@ const privKeyPath string = "keys/app.rsa"
 const pubKeyPath string = "keys/app.rsa.pub"
 
 // redis keys
-const accountSessionKey string = "sessions/account/%d"
-const characterSessionKey string = "sessions/character/%d"
+const sessionKey string = "sessions/user/%d"
+const hkeyUserToken string = "userToken"
+const hkeyCharacterToken string = "charToken"
+const hkeyCharacterData string = "charData"
 const gameSessionKey string = "games/%d"
 
 var db *sql.DB
@@ -234,7 +236,7 @@ func LoginAccount(username string, password string) (string, error) {
 	// first check if a session already exists, if so reject as "already logged on" unless the time is substantially old (> 5min)
 	var alreadyLoggedIn bool = true
 
-	_, err = kvstore.Get(fmt.Sprintf(accountSessionKey, uid)).Result()
+	_, err = kvstore.HGet(fmt.Sprintf(sessionKey, uid), hkeyUserToken).Result()
 	if err != nil {
 		switch err.Error() {
 		case "redis: nil":
@@ -250,8 +252,8 @@ func LoginAccount(username string, password string) (string, error) {
 
 	// set the session in redis and give it a 2 minute expiry
 	// the client needs to ping once every 2 minutes to refresh the expiry
-	kvstore.Set(fmt.Sprintf(accountSessionKey, uid), token_str, 0)
-	kvstore.Expire(fmt.Sprintf(accountSessionKey, uid), time.Second*120)
+	kvstore.HSet(fmt.Sprintf(sessionKey, uid), hkeyUserToken, token_str)
+	kvstore.Expire(fmt.Sprintf(sessionKey, uid), time.Second*120)
 	return token_str, nil
 }
 
@@ -280,7 +282,7 @@ func Disconnect(accountSessionToken string) error {
 
 	log.Printf("thordb: disconnect uid = %d", uid)
 	var count int64
-	count, err = kvstore.Del(fmt.Sprintf(accountSessionKey, uid)).Result()
+	count, err = kvstore.Del(fmt.Sprintf(sessionKey, uid)).Result()
 	if err != nil {
 		return err
 	}
@@ -319,7 +321,7 @@ func validateToken(token_str string) (int, error) {
 	// ToDo: update account + character in postgres before deleting from redis
 
 	var savedToken string
-	savedToken, err = kvstore.Get(fmt.Sprintf(accountSessionKey, uid)).Result()
+	savedToken, err = kvstore.HGet(fmt.Sprintf(sessionKey, uid), hkeyUserToken).Result()
 
 	if err != nil {
 		return 0, err
@@ -397,6 +399,7 @@ func SelectCharacter(userToken string, id int) (*CharacterSession, error) {
 	var game_data string
 	err = db.QueryRow("SELECT game_data from characters WHERE uid = $1 AND id = $2", uid, id).Scan(&game_data)
 	if err != nil {
+		log.Print(err)
 		return nil, err
 	}
 
@@ -425,12 +428,19 @@ func SelectCharacter(userToken string, id int) (*CharacterSession, error) {
 	charSession.UserID = uid
 	charSession.ID = id
 	charSession.Token = token_str
-
-	err = kvstore.Set(fmt.Sprintf(characterSessionKey, charSession.ID), charSession.Token, 0).Err()
+	log.Print("1")
+	err = kvstore.HSet(fmt.Sprintf(sessionKey, charSession.UserID), "characterToken", charSession.Token).Err()
 	if err != nil {
 		log.Print("thordb: kvstore unreachable")
 		log.Print(err)
 	}
+
+	err = kvstore.HSet(fmt.Sprintf(sessionKey, charSession.UserID), "characterData", game_data).Err()
+	if err != nil {
+		log.Print("thordb: kvstore unreachable")
+		log.Print(err)
+	}
+
 	return charSession, nil
 }
 
