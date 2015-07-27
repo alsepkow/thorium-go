@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -27,8 +26,8 @@ const pubKeyPath string = "keys/app.rsa.pub"
 // redis keys
 const sessionKey string = "sessions/user/%d"
 const hkeyUserToken string = "userToken"
-const hkeyCharacterToken string = "charToken"
-const hkeyCharacterData string = "charData"
+const hkeyCharacterToken string = "characterToken"
+const hkeyCharacterData string = "characterData"
 const gameSessionKey string = "games/%d"
 
 var db *sql.DB
@@ -257,30 +256,77 @@ func LoginAccount(username string, password string) (string, error) {
 	return token_str, nil
 }
 
-func Disconnect(accountSessionToken string) error {
+func Disconnect(userToken string) error {
 
-	token, err := jwt.Parse(accountSessionToken, func(token *jwt.Token) (interface{}, error) {
-		return verifyKey, nil
-	})
-
+	uid, err := validateToken(userToken)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("thordb: disconnect w/ token: \n%+v\n", token)
+	var charToken string
+	var charData string
+	var foundCharacter bool = true
 
-	var uidFloat64 float64
-	uidFloat64, ok := token.Claims["uid"].(float64)
-	uid := int(uidFloat64)
-	if !ok {
-		log.Print("couldnt convert uid")
-		log.Print("actual type", reflect.TypeOf(token.Claims["uid"]))
-		return errors.New("thordb: invalid session")
+	charToken, err = kvstore.HGet(fmt.Sprintf(sessionKey, uid), hkeyCharacterToken).Result()
+	if err != nil {
+		// no character to save
+		switch err.Error() {
+		case "redis: nil":
+			// no character to save
+			foundCharacter = false
+		default:
+			return err
+		}
+		log.Print(err)
 	}
 
-	// ToDo: update account + character in postgres before deleting from redis
+	// decrypt the token and get character id
+	if foundCharacter {
+		var token *jwt.Token
+		token, err = jwt.Parse(charToken, func(token *jwt.Token) (interface{}, error) {
+			return verifyKey, nil
+		})
+		if err != nil {
+			log.Print("thordb couldn't parse stored character token")
+			log.Print(err)
+			return err
+		}
+		idFloat, ok := token.Claims["id"].(float64)
+		if !ok {
+			log.Print("thordb couldn't parse stored character token")
+			log.Print(err)
 
-	log.Printf("thordb: disconnect uid = %d", uid)
+		}
+		id := int(idFloat)
+		charData, err = kvstore.HGet(fmt.Sprintf(sessionKey, uid), hkeyCharacterData).Result()
+		if err != nil {
+			// no character to save
+			switch err.Error() {
+			case "redis: nil":
+				// no character to save
+			default:
+				return err
+			}
+		}
+
+		var res sql.Result
+		res, err = db.Exec("UPDATE characters SET game_data = $1 WHERE id = $2 AND uid = $3", charData, id, uid)
+		if err != nil {
+			return err
+		}
+
+		var rows int64
+		rows, err = res.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows == 0 {
+			// character does not exist
+			return errors.New("thordb: does not exist")
+		}
+	}
+
 	var count int64
 	count, err = kvstore.Del(fmt.Sprintf(sessionKey, uid)).Result()
 	if err != nil {
@@ -429,7 +475,7 @@ func SelectCharacter(userToken string, id int) (*CharacterSession, error) {
 	charSession.ID = id
 	charSession.Token = token_str
 	log.Print("1")
-	err = kvstore.HSet(fmt.Sprintf(sessionKey, charSession.UserID), "characterToken", charSession.Token).Err()
+	err = kvstore.HSet(fmt.Sprintf(sessionKey, charSession.UserID), hkeyCharacterToken, charSession.Token).Err()
 	if err != nil {
 		log.Print("thordb: kvstore unreachable")
 		log.Print(err)
