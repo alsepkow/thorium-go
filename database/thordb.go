@@ -325,6 +325,26 @@ func Disconnect(userToken string) error {
 			// character does not exist
 			return errors.New("thordb: does not exist")
 		}
+
+		res, err = db.Exec("UPDATE account_data SET lastlogin = $1 WHERE user_id = $2", time.Now(), uid)
+		if err != nil {
+			return err
+		}
+
+		rows, err = res.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows == 0 {
+			// character does not exist
+			return errors.New("thordb: does not exist")
+		}
+
+		if err != nil {
+			return err
+		}
+
 	}
 
 	var count int64
@@ -513,5 +533,6 @@ func StoreCharacterSnapshot(charSession *CharacterSession) (bool, error) {
 	if rowsAffected == 0 {
 		return false, errors.New("thordb: does not exist")
 	}
+
 	return true, nil
 }
