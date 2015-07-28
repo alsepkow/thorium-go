@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -28,7 +29,7 @@ func main() {
 	fmt.Println(strconv.Itoa(port), "\n")
 
 	var jsonStr = fmt.Sprint(`{"Port":`, port, `}`)
-	request, err := http.NewRequest("POST", "http://localhost:3000/machines/register_new", bytes.NewBuffer([]byte(jsonStr)))
+	request, err := http.NewRequest("POST", "http://localhost:6960/machines/register_new", bytes.NewBuffer([]byte(jsonStr)))
 	request.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -38,6 +39,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if response.StatusCode != 200 {
+		log.Print("Error registering with master")
+		os.Exit(1)
+	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
