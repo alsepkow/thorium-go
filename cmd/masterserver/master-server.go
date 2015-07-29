@@ -48,7 +48,7 @@ func main() {
 
 	// machines
 	m.Post("/machines/register", handleRegisterMachine)
-	m.Post("/machines/:id/status", handleMachineHeartbeat)
+	m.Post("/machines/status", handleMachineHeartbeat)
 	m.Post("/machines/:id/disconnect", handleUnregisterMachine)
 	m.Delete("/machines/:id", handleUnregisterMachine)
 
@@ -363,8 +363,23 @@ func handleCharacterSelect(httpReq *http.Request) (int, string) {
 	return 200, string(jsonBytes)
 }
 
-func handleMachineHeartbeat() (int, string) {
-	return 500, "Not Implemented"
+func handleMachineHeartbeat(httpReq *http.Request) (int, string) {
+
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.MachineStatus
+	err := decoder.Decode(&req)
+	if err != nil || req.MachineToken == "" {
+		log.Print("bad json request", httpReq.Body)
+		return 400, "Bad Request"
+	}
+
+	err = thordb.UpdateMachineStatus(req.MachineToken, req.UsageCPU, req.UsageNetwork, req.PlayerCapacity)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+
+	return 200, "OK"
 }
 
 func sanitize(username string, password string) (string, string, error) {

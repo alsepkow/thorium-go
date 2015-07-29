@@ -80,6 +80,23 @@ func UnregisterMachine(machineToken string) (bool, error) {
 	return true, nil
 }
 
+func UpdateMachineStatus(machineToken string, usageCpu float64, usageNetwork float64, usagePlayerCapacity float64) error {
+
+	machineId, err := validateMachineToken(machineToken)
+	if err != nil {
+		return err
+	}
+
+	// ToDo: use this later to check that 1 row was updated
+	//var res sql.Result
+	_, err = db.Exec("UPDATE machines_metadata SET last_heartbeat = $1, cpu_usage_pct = $2, network_usage_pct = $3, player_occupancy_pct = $4 WHERE machine_id = $5",
+		time.Now(), usageCpu, usageNetwork, usagePlayerCapacity, machineId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestMachineRequest() {
 	_, err := kvstore.Ping().Result()
 	if err != nil {

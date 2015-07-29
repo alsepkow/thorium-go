@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"syscall"
 	"thorium-go/requests"
+	"thorium-go/usage"
 	"time"
 )
 
@@ -95,7 +96,32 @@ func main() {
 }
 
 func sendHeartbeat() {
-	log.Print("...")
+	var err error
+	statusData := &request.MachineStatus{}
+	statusData.MachineToken = registerData.MachineToken
+	statusData.UsageCPU, _ = usage.GetCPU()
+	statusData.UsageNetwork, _ = usage.GetNetworkUtilization()
+	statusData.PlayerCapacity = 0.0
+
+	jsonBytes, err := json.Marshal(statusData)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	request, err := http.NewRequest("POST", "http://localhost:6960/machines/status", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 }
 
 func handlePingRequest() (int, string) {
