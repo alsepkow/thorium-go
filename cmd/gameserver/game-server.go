@@ -24,8 +24,8 @@ var registerData request.MachineRegisterResponse
 func main() {
 	fmt.Println("hello world")
 
-	time := time.Now()
-	rand.Seed(int64(time.Second()))
+	timeNow := time.Now()
+	rand.Seed(int64(timeNow.Second()))
 	port := rand.Intn(50000)
 	port = port + 10000
 
@@ -79,8 +79,23 @@ func main() {
 	}()
 	defer shutdown()
 
+	ticker := time.NewTicker(2 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				sendHeartbeat()
+			}
+		}
+	}()
+
 	thisIp := fmt.Sprint("localhost:", strconv.Itoa(port))
 	m.RunOnAddr(thisIp)
+
+}
+
+func sendHeartbeat() {
+	log.Print("...")
 }
 
 func handlePingRequest() (int, string) {
