@@ -39,7 +39,6 @@ func main() {
 	m.Post("/games/:id/register_server", handleRegisterServer)
 	m.Post("/games/:id/server_status", handleGameServerStatus)
 
-	m.Post("/games/new_request", handleGameRequest) // deprecate
 	m.Post("/games/new", handleGameRequest)
 
 	m.Get("/games", handleGetServerList)
@@ -49,9 +48,8 @@ func main() {
 
 	// machines
 	m.Post("/machines/register", handleRegisterMachine)
-	m.Post("/machines/register_new", handleRegisterMachine) // deprecate
-
-	m.Post("/machines/:id/unregister", handleUnregisterMachine)
+	m.Post("/machines/:id/status", handleMachineHeartbeat)
+	m.Post("/machines/:id/disconnect", handleUnregisterMachine)
 	m.Delete("/machines/:id", handleUnregisterMachine)
 
 	m.RunOnAddr(":6960")
@@ -228,7 +226,7 @@ func handleRegisterMachine(httpReq *http.Request) (int, string) {
 
 	if req.Port == 0 {
 		fmt.Println("No Port Given")
-		return 500, "No Port Given"
+		return 400, "Bad Request"
 	} else {
 		fmt.Println("register port = ", req.Port)
 	}
@@ -236,29 +234,45 @@ func handleRegisterMachine(httpReq *http.Request) (int, string) {
 	machineIp := strings.Split(httpReq.RemoteAddr, ":")[0]
 
 	var machineId int
-	machineId, err = thordb.RegisterMachine(machineIp, req.Port)
+	var machineToken string
+	machineId, machineToken, err = thordb.RegisterMachine(machineIp, req.Port)
 	if err != nil {
 		logerr("error registering machine", err)
 		return 500, "Internal Server Error"
 	}
-	fmt.Println("machine registered, ip=", machineIp)
-	return 200, strconv.Itoa(machineId)
+	var response request.MachineRegisterResponse
+	response.MachineId = machineId
+	response.MachineToken = machineToken
+
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(&response)
+	if err != nil {
+		log.Print("error encoding register machine response\n", err)
+		return 500, "Internal Server Error"
+	}
+
+	return 200, string(jsonBytes)
 }
 
-func handleUnregisterMachine(params martini.Params) (int, string) {
+func handleUnregisterMachine(httpReq *http.Request, params martini.Params) (int, string) {
 
-	machineId, err := strconv.Atoi(params["id"])
+	decoder := json.NewDecoder(httpReq.Body)
+	var req request.UnregisterMachine
+	err := decoder.Decode(&req)
 	if err != nil {
-		logerr(fmt.Sprint("unable to convert request parameter, id=", params["id"]), err)
+		logerr("Error decoding machine unregister request", err)
 		return 400, "Bad Request"
 	}
 
-	success, err := thordb.UnregisterMachine(machineId)
-	if err != nil || success {
+	success, err := thordb.UnregisterMachine(req.MachineToken)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	} else if !success {
 		logerr("unable to remove machine registry", err)
+		return 400, "Bad Request"
 	}
 
-	fmt.Println("machine unregistered, id=", machineId)
 	return 200, "OK"
 }
 
@@ -347,6 +361,10 @@ func handleCharacterSelect(httpReq *http.Request) (int, string) {
 	}
 
 	return 200, string(jsonBytes)
+}
+
+func handleMachineHeartbeat() (int, string) {
+	return 500, "Not Implemented"
 }
 
 func sanitize(username string, password string) (string, string, error) {

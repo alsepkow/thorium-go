@@ -15,6 +15,17 @@ type RegisterMachine struct {
 	Port int `json:"serviceListenPort"`
 }
 
+type UnregisterMachine struct {
+	MachineToken string `json:"machineToken"`
+}
+
+type MachineStatus struct {
+	MachineToken   string  `json:"machineToken"`
+	UsageCPU       float64 `json:"cpuUsagePct"`
+	UsageNetwork   float64 `json:"networkUsagePct"`
+	PlayerCapacity float64 `json:"playerCapacityPct"`
+}
+
 type Authentication struct {
 	Username string `json:"username"`
 	Password string `json:"password"`

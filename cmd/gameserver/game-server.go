@@ -2,21 +2,24 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
+	"thorium-go/requests"
 	"time"
 )
 
 import _ "github.com/lib/pq"
 import "github.com/go-martini/martini"
+
+var registerData request.MachineRegisterResponse
 
 func main() {
 	fmt.Println("hello world")
@@ -28,8 +31,16 @@ func main() {
 
 	fmt.Println(strconv.Itoa(port), "\n")
 
-	var jsonStr = fmt.Sprint(`{"Port":`, port, `}`)
-	request, err := http.NewRequest("POST", "http://localhost:6960/machines/register_new", bytes.NewBuffer([]byte(jsonStr)))
+	reqData := &request.RegisterMachine{Port: port}
+	jsonBytes, err := json.Marshal(reqData)
+	if err != nil {
+		log.Fatal(err)
+	}
+	request, err := http.NewRequest("POST", "http://localhost:6960/machines/register", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	request.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -49,8 +60,9 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	machineId := string(body)
-	fmt.Println("Registered As Machine#", machineId)
+
+	json.Unmarshal([]byte(body), &registerData)
+	fmt.Println("Registered As Machine#", registerData.MachineId)
 
 	m := martini.Classic()
 
@@ -62,10 +74,10 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGKILL, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		fmt.Println(<-c)
-		shutdown(machineId)
+		shutdown()
 		os.Exit(1)
 	}()
-	defer shutdown(machineId)
+	defer shutdown()
 
 	thisIp := fmt.Sprint("localhost:", strconv.Itoa(port))
 	m.RunOnAddr(thisIp)
@@ -75,11 +87,26 @@ func handlePingRequest() (int, string) {
 	return 200, "OK"
 }
 
-func shutdown(machineId string) {
-	unregister := fmt.Sprintf("http://localhost:3000/machines/%s/unregister", machineId)
-	_, err := http.PostForm(unregister, url.Values{"message": {"OK"}})
+func shutdown() {
+
+	var reqData request.UnregisterMachine
+	reqData.MachineToken = registerData.MachineToken
+	jsonBytes, err := json.Marshal(&reqData)
 	if err != nil {
-		fmt.Println(err)
+		return
 	}
 
+	var req *http.Request
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://localhost:6960/machines/%d/disconnect", registerData.MachineId), bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	_, err = client.Do(req)
+	if err != nil {
+		log.Print("failed to disconnect properly")
+		return
+	}
 }

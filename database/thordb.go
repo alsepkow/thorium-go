@@ -119,32 +119,6 @@ func RegisterActiveGame(gameId int, machineId int, port int) (bool, error) {
 	return exists, err
 }
 
-func RegisterMachine(machineIp string, port int) (int, error) {
-	var machineId int
-	err := db.QueryRow("INSERT INTO game_machines (ip_address, port) VALUES ( $1, $2 ) RETURNING machine_id", machineIp, port).Scan(&machineId)
-	return machineId, err
-}
-
-func UnregisterMachine(machineId int) (bool, error) {
-
-	success := false
-
-	res, err := db.Exec("DELETE FROM game_machines WHERE machine_id = $1", machineId)
-	if err != nil {
-		return success, err
-	}
-
-	var rows int64
-	rows, err = res.RowsAffected()
-	if err != nil {
-		return success, err
-	}
-
-	success = rows > 0
-	return success, err
-
-}
-
 func RegisterAccount(username string, password string) (int, error) {
 	var foundname string
 	err := db.QueryRow("SELECT username FROM account_data WHERE username LIKE $1;", username).Scan(&foundname)
