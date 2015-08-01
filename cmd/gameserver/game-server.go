@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	request, err := http.NewRequest("POST", "http://localhost:6960/machines/register", bytes.NewBuffer(jsonBytes))
+	request, err := http.NewRequest("POST", "http://52.25.124.72:6960/machines/register", bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -109,15 +109,15 @@ func sendHeartbeat() {
 		return
 	}
 
-	request, err := http.NewRequest("POST", "http://localhost:6960/machines/status", bytes.NewBuffer(jsonBytes))
+	request, err := http.NewRequest("POST", "http://52.25.124.72:6960/machines/status", bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	request.Header.Set("Content-Type", "application/json")
-
+	request.Header.Set("Connection", "close")
 	client := &http.Client{}
-	_, err := client.Do(request)
+	_, err = client.Do(request)
 	if err != nil {
 		log.Print(err)
 		return
@@ -138,7 +138,7 @@ func shutdown() {
 	}
 
 	var req *http.Request
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://localhost:6960/machines/%d/disconnect", registerData.MachineId), bytes.NewBuffer(jsonBytes))
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://52.25.124.72:6960/machines/%d/disconnect", registerData.MachineId), bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		return
 	}
