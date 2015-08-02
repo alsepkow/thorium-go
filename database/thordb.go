@@ -380,6 +380,7 @@ func CreateCharacter(userToken string, character *CharacterData) (*CharacterSess
 	if err != nil {
 		return nil, err
 	}
+
 	var foundname string
 	err = db.QueryRow("SELECT name FROM characters WHERE name LIKE $1", character.Name).Scan(&foundname)
 	switch {
@@ -421,10 +422,34 @@ func CreateCharacter(userToken string, character *CharacterData) (*CharacterSess
 	charSession.ID = id
 	charSession.Token = token_str
 
-	var coordIndex int
-	coordIndex = character.World.GetIndex()
-	// store location into character_locations table??
-	log.Printf("player created on world %d", coordIndex)
+	// search db for any existing tutorial games
+	var game_id int
+	err = db.QueryRow("SELECT game_id FROM games WHERE game_mode LIKE $1 ORDER BY RANDOM() LIMIT 1", "tutorial").Scan(&game_id)
+	switch {
+	case err == sql.ErrNoRows:
+		log.Print("thordb: no tutorial games found")
+
+		var game_id int
+		err = db.QueryRow("INSERT INTO games (map_name, game_mode) VALUES ('tutorial', 'tutorial') RETURNING game_id").Scan(&game_id)
+		if err != nil {
+			return nil, err
+		}
+
+		// todo
+		// provision new game on an available machine here
+
+		// then
+		// return character session on new tutorial game
+		charSession.GameId = game_id
+		return charSession, nil
+
+	case err != nil:
+		return nil, err
+	}
+
+	// using first record for now
+	// todo: search for low utilization machine
+	charSession.GameId = game_id
 	return charSession, nil
 }
 

@@ -12,7 +12,7 @@ import (
 import "bytes"
 import "io/ioutil"
 
-var address string = "localhost"
+var address string = "52.25.124.72"
 var port int = 6960
 
 func PingMaster() (bool, error) {
@@ -47,7 +47,7 @@ func LoginRequest(username string, password string) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", "http://localhost:6960/clients/login", bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%d/clients/login", address, port), bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Print("error with request: ", err)
 		return "err", err
@@ -75,7 +75,7 @@ func CharacterSelectRequest(token string, id int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:6960/characters/%d/select", id), bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%d/characters/%d/select", address, port, id), bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -97,7 +97,7 @@ func CharacterCreateRequest(token string, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest("POST", "http://localhost:6960/characters/new", bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%d/characters/new", address, port), bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -114,7 +114,7 @@ func CharacterCreateRequest(token string, name string) (string, error) {
 func DisconnectRequest(token string) (string, error) {
 
 	buf := []byte(token)
-	req, err := http.NewRequest("POST", "http://localhost:6960/clients/disconnect", bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%d/clients/disconnect", address, port), bytes.NewBuffer(buf))
 	if err != nil {
 		log.Print("error with request: ", err)
 		return "err", err

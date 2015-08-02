@@ -47,6 +47,7 @@ type CharacterSession struct {
 	ID     int    `json:"id"`
 	UserID int    `json:"uid"`
 	Token  string `json:"charSessionToken"`
+	GameId int    `json:"gameId"`
 	*CharacterData
 }
 

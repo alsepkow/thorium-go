@@ -116,12 +116,16 @@ func sendHeartbeat() {
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Connection", "close")
+
 	client := &http.Client{}
-	_, err = client.Do(request)
+	var resp *http.Response
+	resp, err = client.Do(request)
 	if err != nil {
 		log.Print(err)
 		return
 	}
+
+	resp.Body.Close()
 }
 
 func handlePingRequest() (int, string) {
@@ -145,9 +149,11 @@ func shutdown() {
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
-	_, err = client.Do(req)
+	var resp *http.Response
+	resp, err = client.Do(req)
 	if err != nil {
 		log.Print("failed to disconnect properly")
 		return
 	}
+	resp.Body.Close()
 }

@@ -176,14 +176,18 @@ func handleCreateCharacter(httpReq *http.Request) (int, string) {
 			return 500, "Internal Server Error"
 		}
 	}
+	var resp request.CharacterSessionResponse
+	resp.CharacterToken = characterSession.Token
+	resp.GameId = characterSession.GameId
+
 	var jsonBytes []byte
-	jsonBytes, err = json.Marshal(characterSession.CharacterData)
+	jsonBytes, err = json.Marshal(&resp)
 	if err != nil {
 		log.Print(err)
 		return 500, "Internal Server Error"
 	}
-	log.Printf("thordb: created character %d - %s\ncharacter details:\n%s", characterSession.ID, characterSession.Name, string(jsonBytes))
-	return 200, characterSession.Token
+
+	return 200, string(jsonBytes)
 }
 
 func handleGetCharacter(httpReq *http.Request) (int, string) {
