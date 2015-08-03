@@ -68,6 +68,7 @@ func main() {
 	m := martini.Classic()
 
 	m.Get("/ping", handlePingRequest)
+	m.Post("/games/:id", handlePostNewGame)
 	//m.Post("/games/new_request", handleGameRequest)
 	//m.Post("/games/:id/register_server", handleRegisterServer)
 
@@ -90,7 +91,7 @@ func main() {
 		}
 	}()
 
-	thisIp := fmt.Sprint("localhost:", strconv.Itoa(port))
+	thisIp := fmt.Sprintf(":%d", port)
 	m.RunOnAddr(thisIp)
 
 }
@@ -129,6 +130,10 @@ func sendHeartbeat() {
 }
 
 func handlePingRequest() (int, string) {
+	return 200, "OK"
+}
+
+func handlePostNewGame() (int, string) {
 	return 200, "OK"
 }
 

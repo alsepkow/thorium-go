@@ -6,6 +6,12 @@ type NewGame struct {
 	MaxPlayers     int    `json:"maxPlayers"`
 }
 
+type PostNewGame struct {
+	MachineToken string `json:"machineToken"`
+	MapName      string `json:"mapName"`
+	GameMode     string `json:"gameMode"`
+}
+
 type RegisterGame struct {
 	MachineId int `json:"machineId"`
 	Port      int `json:"gameListenPort"`

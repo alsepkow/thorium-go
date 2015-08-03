@@ -437,6 +437,10 @@ func CreateCharacter(userToken string, character *CharacterData) (*CharacterSess
 
 		// todo
 		// provision new game on an available machine here
+		err = ProvisionNewGame(game_id, "tutorial", "tutorial")
+		if err != nil {
+			return nil, err
+		}
 
 		// then
 		// return character session on new tutorial game
@@ -447,8 +451,12 @@ func CreateCharacter(userToken string, character *CharacterData) (*CharacterSess
 		return nil, err
 	}
 
-	// using first record for now
-	// todo: search for low utilization machine
+	// provision new game on an available machine here
+	err = ProvisionNewGame(game_id, "tutorial", "tutorial")
+	if err != nil {
+		return nil, err
+	}
+
 	charSession.GameId = game_id
 	return charSession, nil
 }
@@ -507,6 +515,32 @@ func SelectCharacter(userToken string, id int) (*CharacterSession, error) {
 	}
 
 	return charSession, nil
+}
+
+func GetServerInfo(game_id int) (string, int, error) {
+
+	var count int
+	err := db.QueryRow("SELECT count(*) from games WHERE game_id = $1", game_id).Scan(&count)
+	if err != nil {
+		return "", 0, err
+	}
+
+	if count == 0 {
+		// game doesnt exist
+		return "", 0, errors.New("thordb: does not exist")
+	}
+
+	var (
+		address string
+		port    int
+	)
+
+	err = db.QueryRow("SELECT (remote_address, port) from game_servers JOIN machines USING (machine_id) WHERE game_id = $1", game_id).Scan(&address, &port)
+	if err != nil {
+		return "", 0, errors.New("thordb: game not available yet")
+	}
+
+	return address, port, nil
 }
 
 // ToDo: remove this func from public, only exposed for testing

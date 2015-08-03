@@ -43,6 +43,7 @@ func main() {
 
 	m.Get("/games", handleGetServerList)
 	m.Get("/games/:id", handleGetGameInfo)
+	m.Get("/games/:id/server_info", handleGetServerInfo)
 	m.Post("/games/join", handleClientJoinGame)
 	m.Post("/games/join_queue", handleClientJoinQueue)
 
@@ -384,6 +385,42 @@ func handleMachineHeartbeat(httpReq *http.Request) (int, string) {
 	}
 
 	return 200, "OK"
+}
+
+func handleGetServerInfo(params martini.Params) (int, string) {
+
+	game_id, err := strconv.Atoi(params["id"])
+	if err != nil {
+		return 400, "Bad Request"
+	}
+
+	var (
+		address string
+		port    int
+	)
+
+	address, port, err = thordb.GetServerInfo(game_id)
+	if err != nil {
+		switch err.Error() {
+		case "thordb: does not exist":
+			return 404, "Not Found"
+		case "thordb: game not available yet":
+			return 202, "Accepted"
+		}
+	}
+
+	var info request.ServerInfoResponse
+	info.RemoteAddress = address
+	info.Port = port
+
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(&info)
+	if err != nil {
+		return 500, "Internal Server Error"
+	}
+
+	return 200, string(jsonBytes)
+
 }
 
 func sanitize(username string, password string) (string, string, error) {
