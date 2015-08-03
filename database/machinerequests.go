@@ -94,6 +94,9 @@ func UpdateMachineStatus(machineToken string, usageCpu float64, usageNetwork flo
 	if err != nil {
 		return err
 	}
+
+	kvstore.Expire(fmt.Sprintf(machineSessionKey, machineId), time.Second*120)
+
 	return nil
 }
 
