@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"thorium-go/requests"
+	"time"
 )
 
 import "bytes"
@@ -121,36 +123,31 @@ func main() {
 	}
 	log.Print("LoginResponse Token: ", resp.UserToken)
 	log.Print("LoginResponse Character ID's: ", resp.CharacterIDs)
-	//chars := make([10]int)
-	//_, err = ViewCharacters(&chars)
-	//	if err != nil {
-	//		log.Print(err)
-	//	}
-
-	//	chars := make([10]int)
-	//	_, err = ViewCharacters(&chars)
-	if err != nil {
-		log.Print(err)
-	}
-	// foreach character data print it
-	// here
-
-	// use this when done above
-	//_, err = CharacterSelectRequest(token, chars[0])
-	//	_, err = CharacterSelectRequest(token, 2)
-
-	//_, err = CharacterSelectRequest(token, 2)
-
-	//_, err = CharacterCreateRequest(token, "legacy33")
-	//if err != nil {
-	//	log.Print("error sending create character request", err)
-	//}
 
 	var charSession string
-	charSession, err = CharacterSelectRequest(resp.UserToken, 6)
-	//charSession, err = CharacterCreateRequest(token, "legacy33")
-	if err != nil {
-		log.Print("error sending create character request", err)
+	var selected bool = false
+	for i := 0; i < len(resp.CharacterIDs); i++ {
+		log.Print("character %d id = %d", i, resp.CharacterIDs[i])
+
+		if resp.CharacterIDs[i] != 0 {
+			charSession, err = CharacterSelectRequest(resp.UserToken, resp.CharacterIDs[i])
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+
+			selected = true
+			break
+		}
+	}
+
+	if !selected {
+		rand.Seed(int64(time.Now().Second()))
+
+		charSession, err = CharacterCreateRequest(resp.UserToken, fmt.Sprintf("legacy%d", rand.Intn(100000)))
+		if err != nil {
+			log.Print(err)
+		}
 	}
 
 	log.Print("character session:\n", charSession)

@@ -233,7 +233,7 @@ func LoginAccount(username string, password string) (string, []int, error) {
 
 	//SELECT id FROM characters WHERE uid='5'
 	charIDs = make([]int, 10)
-	rows, err := db.Query("SELECT id FROM characters where uid='5';")
+	rows, err := db.Query("SELECT id FROM characters where uid=$1", uid)
 	if err != nil {
 		log.Print("error querying character ids from uid: ", err)
 		return token_str, charIDs, err
