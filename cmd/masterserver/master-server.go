@@ -370,8 +370,12 @@ func handleCharacterSelect(httpReq *http.Request) (int, string) {
 		return 500, "Internal Server Error"
 	}
 
+	var resp request.CharacterSessionResponse
+	resp.CharacterToken = charSession.Token
+	resp.GameId = charSession.GameId
+
 	var jsonBytes []byte
-	jsonBytes, err = json.Marshal(charSession.Token)
+	jsonBytes, err = json.Marshal(&resp)
 	if err != nil {
 		log.Print(err)
 		return 500, "Internal Server Error"
