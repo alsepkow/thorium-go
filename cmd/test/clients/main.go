@@ -147,7 +147,7 @@ func main() {
 	//}
 
 	var charSession string
-	charSession, err = CharacterSelectRequest(token, 6)
+	charSession, err = CharacterSelectRequest(resp.UserToken, 6)
 	//charSession, err = CharacterCreateRequest(token, "legacy33")
 	if err != nil {
 		log.Print("error sending create character request", err)
