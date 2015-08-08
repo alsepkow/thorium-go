@@ -1,55 +1,49 @@
 //package main
 package process
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"strconv"
+)
 import "os"
 import "os/exec"
-import "time"
 
 type ManagedProcess struct {
 	ApplicationName string
 	Process         *os.Process
-	PID             int
+	GameId          int
+	ListenPort      int
+	GameMode        string
+	MapName         string
 	// add more here if needed
 }
 
-func init() {
-	//func main(){
-	fmt.Println("hello world")
+var process_list map[int]ManagedProcess = make(map[int]ManagedProcess)
 
-	var processes [32]ManagedProcess
+func NewGameServer(game_id int, listen_port int, service_port int, game_mode string, map_name string) (*ManagedProcess, error) {
+	log.Print("starting new game server")
 
-	for i := 0; i < 32; i++ {
-		cmd, err := execute_cmd("./servertest")
-
-		if err != nil {
-			continue
-		}
-
-		// todo: factor into managed process
-		var process ManagedProcess
-		process.ApplicationName = "test_outputonly"
-		process.Process = cmd.Process
-		process.PID = cmd.Process.Pid
-
-		processes[i] = process
-
-		fmt.Println("New server Pid=", cmd.Process.Pid)
+	cmd := exec.Command("bolt-server",
+		"-id", strconv.Itoa(game_id),
+		"-p", strconv.Itoa(listen_port),
+		"-s", strconv.Itoa(service_port),
+		"-m", map_name,
+		"-g", game_mode)
+	err := cmd.Start()
+	if err != nil {
+		return nil, err
 	}
 
-	fmt.Println("Thorium.NET is running ... ")
+	var process ManagedProcess
+	process.ApplicationName = "bolt-server.go"
+	process.Process = cmd.Process
+	process.GameId = game_id
+	process.ListenPort = listen_port
+	process.GameMode = game_mode
+	process.MapName = map_name
 
-	time.Sleep(10)
-
-	fmt.Println("Thorium.NET is shutting down ... ")
-
-	for i := 0; i < 32; i++ {
-		err := processes[i].Process.Kill()
-
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
+	return &process, nil
 }
 
 func execute_cmd(command string) (*exec.Cmd, error) {
@@ -61,6 +55,3 @@ func execute_cmd(command string) (*exec.Cmd, error) {
 	}
 	return cmd, err
 }
-
-// todo
-//func startProcess(applicationName string) *ManagedProcess {

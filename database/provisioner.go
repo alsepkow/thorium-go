@@ -61,6 +61,6 @@ func ProvisionNewGame(game_id int, map_name string, game_mode string) error {
 	return nil
 }
 
-func ProvisionNewGameServer() {
-	// do nothing
+func ProvisionNewMachine() {
+	// todo: spawn a new machine in aws or similar
 }

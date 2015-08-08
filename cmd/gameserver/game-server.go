@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"thorium-go/process"
 	"thorium-go/requests"
 	"thorium-go/usage"
 	"time"
@@ -21,13 +22,14 @@ import _ "github.com/lib/pq"
 import "github.com/go-martini/martini"
 
 var registerData request.MachineRegisterResponse
+var port int
 
 func main() {
 	fmt.Println("hello world")
 
 	timeNow := time.Now()
 	rand.Seed(int64(timeNow.Second()))
-	port := rand.Intn(50000)
+	port = rand.Intn(50000)
 	port = port + 10000
 
 	fmt.Println(strconv.Itoa(port), "\n")
@@ -67,10 +69,10 @@ func main() {
 
 	m := martini.Classic()
 
-	m.Get("/ping", handlePingRequest)
+	m.Get("/", handlePingRequest)
+	m.Get("/status", handlePingRequest)
 	m.Post("/games/:id", handlePostNewGame)
-	//m.Post("/games/new_request", handleGameRequest)
-	//m.Post("/games/:id/register_server", handleRegisterServer)
+	m.Post("/games/:id/register_server", handleRegisterLocalServer)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGKILL, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
@@ -93,7 +95,6 @@ func main() {
 
 	thisIp := fmt.Sprintf(":%d", port)
 	m.RunOnAddr(thisIp)
-
 }
 
 func sendHeartbeat() {
@@ -133,7 +134,82 @@ func handlePingRequest() (int, string) {
 	return 200, "OK"
 }
 
-func handlePostNewGame() (int, string) {
+func handlePostNewGame(http_req *http.Request, params martini.Params) (int, string) {
+
+	defer http_req.Body.Close()
+	decoder := json.NewDecoder(http_req.Body)
+	var req_data request.PostNewGame
+	err := decoder.Decode(&req_data)
+	if err != nil {
+		log.Print("bad json request:\n", http_req.Body)
+		return 400, "Bad Request"
+	}
+
+	if registerData.MachineToken != req_data.MachineToken {
+		log.Print("rejecting failed post new game - incorrect machine token in request")
+		return 400, "Bad Request"
+	}
+
+	var game_id int
+	game_id, err = strconv.Atoi(params["id"])
+	if err != nil {
+		log.Print(err)
+		return 400, "Bad Request"
+	}
+
+	var server *process.ManagedProcess
+	server, err = process.NewGameServer(game_id, rand.Intn(50000)+10000, port, req_data.GameMode, req_data.MapName)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+	log.Print("started new game server w/ pid = ", server.Process.Pid)
+
+	return 200, "OK"
+}
+
+func handleRegisterLocalServer(httpReq *http.Request, params martini.Params) (int, string) {
+
+	decoder := json.NewDecoder(httpReq.Body)
+	var data request.RegisterGameServer
+	err := decoder.Decode(&data)
+	if err != nil {
+		log.Print(err)
+		return 400, "Bad Request"
+	}
+
+	data.MachineId = registerData.MachineId
+
+	var jsonBytes []byte
+	jsonBytes, err = json.Marshal(&data)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+
+	endpoint := fmt.Sprintf("http://52.25.124.72:6960/games/%s/register_server", params["id"])
+	var req *http.Request
+	req, err = http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		log.Print(err)
+		return 500, "Internal Server Error"
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		log.Print("error: couldn't register game server with master")
+		return 500, "Internal Server Error"
+	}
+
 	return 200, "OK"
 }
 

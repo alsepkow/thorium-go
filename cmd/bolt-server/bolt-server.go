@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"thorium-go/requests"
 
 	"github.com/go-martini/martini"
 )
@@ -32,8 +34,14 @@ func main() {
 		log.Fatal("bad arguments")
 	}
 
+	var data request.RegisterGameServer
+	data.Port = listen_port
+	data.GameId = game_id
+	jsonBytes, err := json.Marshal(&data)
+
 	endpoint := fmt.Sprintf("http://localhost:%d/games/%d/register_server", service_port, game_id)
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer([]byte("")))
+	var req *http.Request
+	req, err = http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		log.Fatal(err)
 	}

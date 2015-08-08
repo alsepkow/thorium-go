@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS "games" (
 
 CREATE TABLE IF NOT EXISTS "game_servers" (
 	"game_id" SERIAL PRIMARY KEY references games(game_id),
-	"machine_id" SERIAL references game_machines(machine_id),
+	"machine_id" SERIAL references machines(machine_id),
 	"port" INTEGER
 );
 

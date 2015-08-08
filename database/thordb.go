@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -87,8 +86,9 @@ func RegisterNewGame(mapName string, maxPlayers int) (int, error) {
 	return gameId, err
 }
 
-func RegisterActiveGame(gameId int, machineId int, port int) (bool, error) {
-	res, err := db.Exec("SELECT * FROM public.games WHERE game_id = $1", gameId)
+func RegisterActiveGame(game_id int, machine_id int, port int) (bool, error) {
+
+	res, err := db.Exec("INSERT INTO game_servers (game_id, machine_id, port) VALUES ($1, $2, $3)", game_id, machine_id, port)
 	if err != nil {
 		return false, err
 	}
@@ -100,22 +100,6 @@ func RegisterActiveGame(gameId int, machineId int, port int) (bool, error) {
 	}
 
 	exists := rows > 0
-	if exists != true {
-		log.Print("gameId ", strconv.Itoa(gameId), " does not exist")
-		return false, errors.New("thordb: does not exist")
-	}
-
-	res, err = db.Exec("INSERT INTO active_games (game_id, machine_id, port) VALUES ( $1, $2, $3 )", gameId, machineId, port)
-	if err != nil {
-		return false, err
-	}
-
-	rows, err = res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-
-	exists = rows > 0
 	return exists, err
 }
 
@@ -622,8 +606,9 @@ func GetServerInfo(game_id int) (string, int, error) {
 		port    int
 	)
 
-	err = db.QueryRow("SELECT (remote_address, port) from game_servers JOIN machines USING (machine_id) WHERE game_id = $1", game_id).Scan(&address, &port)
+	err = db.QueryRow("SELECT remote_address, port from game_servers JOIN machines USING (machine_id) WHERE game_id = $1", game_id).Scan(&address, &port)
 	if err != nil {
+		log.Print(err)
 		return "", 0, errors.New("thordb: game not available yet")
 	}
 

@@ -12,8 +12,9 @@ type PostNewGame struct {
 	GameMode     string `json:"gameMode"`
 }
 
-type RegisterGame struct {
+type RegisterGameServer struct {
 	MachineId int `json:"machineId"`
+	GameId    int `json:"gameId"`
 	Port      int `json:"gameListenPort"`
 }
 

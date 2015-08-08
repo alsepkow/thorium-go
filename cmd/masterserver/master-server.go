@@ -97,7 +97,6 @@ func handleClientLogin(httpReq *http.Request) (int, string) {
 			return 500, "Internal Server Error"
 		}
 	}
-	log.Print("List of character ID's: ", charIDs)
 
 	var resp request.LoginResponse
 	resp.UserToken = token
@@ -323,7 +322,7 @@ func handleGameRequest(httpReq *http.Request) (int, string) {
 
 func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, string) {
 	decoder := json.NewDecoder(httpReq.Body)
-	var req request.RegisterGame
+	var req request.RegisterGameServer
 	err := decoder.Decode(&req)
 	if err != nil {
 		logerr("Error decoding machine register request", err)
@@ -341,8 +340,6 @@ func handleRegisterServer(httpReq *http.Request, params martini.Params) (int, st
 		logerr(fmt.Sprintf("unable to convert parameter id=%s to integer", params["id"]), err)
 		return 400, "Bad Request"
 	}
-
-	fmt.Println("[ThoriumNET] master-server.handleRegisterServer ID=", gameId)
 
 	registered, err := thordb.RegisterActiveGame(gameId, req.MachineId, req.Port)
 	if err != nil || !registered {
