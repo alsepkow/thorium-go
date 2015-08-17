@@ -1,5 +1,4 @@
 # thorium-go
-## Thorium.NET in Golang
 
 A game server cluster management tool using HTTP/REST.
 
