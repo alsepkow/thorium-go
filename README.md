@@ -1,9 +1,9 @@
 # thorium-go
 Thorium.NET in Golang
 
-The following code provides a system to manage a cluster of game server machines using HTTP/REST.
+A game server cluster management tool using HTTP/REST.
 
-Only requires one node to start a cluster, but supports multi-node configuration. Some knowledge of network management and configuration is required. I.e. setting up machines, exposing ports, configuring addresses, etc. 
+Can run as a one-node or multi-node cluster. Some knowledge of network management and configuration is required to setup and run. I.e. setting up machines, exposing addresses and ports, etc. 
 
 Before Starting
 - install Golang (1.4) and setup $GOPATH to work with this repository
